@@ -2,7 +2,7 @@ const tg = window.Telegram?.WebApp; if (tg) { tg.expand(); tg.ready(); }
 
 const qs = new URLSearchParams(location.search);
 const planId = qs.get('plan_id'); const token = qs.get('token');
-const API = 'https://script.google.com/macros/s/AKfycbxZk4HeC5UtfDWctL0FYanGs6pQwHQeUGf7es4EgWeCId5UYwSH2gvDs5OJfy2O-HzCjQ/exec';
+const API = 'https://script.google.com/macros/s/AKfycbxq70NDjxdceKIDFVbmhdgPx5LWPrjrZFUhTtXpKL2sLbIDpZ1mO6YP1ph9-IMkWzRuPQ/exec';
 
 let currentPlan = null;
 const $ = sel => document.querySelector(sel);
@@ -98,3 +98,4 @@ loadPlan().catch(err=>{
   $('#title').textContent = 'Помилка';
   $('#macros').textContent = err.message || 'Щось пішло не так';
 });
+
