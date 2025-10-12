@@ -12,13 +12,11 @@ const API = 'https://script.google.com/macros/s/AKfycbxq70NDjxdceKIDFVbmhdgPx5LW
 let currentPlan = null;
 const $ = sel => document.querySelector(sel);
 
-// ---------- Хелпери для безпечних обчислень ----------
-function num(x) { const n = Number(x); return Number.isFinite(n) ? n : 0; }
-
+// ---------- Хелпери ----------
+function num(x){ const n = Number(x); return Number.isFinite(n) ? n : 0; }
 function sumMeals(meals = [], key) {
   return (meals || []).reduce((s, m) => s + num(m?.[key]), 0);
 }
-
 function computeDayMacros(day = {}) {
   const meals = Array.isArray(day?.meals) ? day.meals : [];
   return {
@@ -28,7 +26,6 @@ function computeDayMacros(day = {}) {
     carbs_g:   num(day?.carbs_g)   || sumMeals(meals, 'carbs_g'),
   };
 }
-
 function computePlanMeta(plan = {}) {
   const days = Array.isArray(plan?.days) ? plan.days : [];
   const meta = plan?.meta || {};
@@ -51,6 +48,55 @@ function computePlanMeta(plan = {}) {
   };
 }
 
+// ---- Нормалізація формату з meal_plan → days ----
+function normalizePlan(raw) {
+  // якщо API повернув рядок (як у твоєму прикладі з "text")
+  if (typeof raw === 'string') {
+    try { raw = JSON.parse(raw); } catch { /* залишимо як є */ }
+  }
+  if (raw && raw.text && typeof raw.text === 'string') {
+    try { raw = JSON.parse(raw.text); } catch { /* залишимо як є */ }
+  }
+
+  // Якщо це вже наш контракт
+  if (raw?.days && Array.isArray(raw.days)) return raw;
+
+  // Якщо це контракт з meal_plan
+  if (Array.isArray(raw?.meal_plan)) {
+    const days = raw.meal_plan.map((d, i) => {
+      const sum = d?.daily_macros_summary || {};
+      const meals = Array.isArray(d?.meals) ? d.meals.map(m => ({
+        meal_type: m?.meal_type || '',
+        title: m?.meal_type || '',            // назву беремо з типу
+        description: m?.description || '',
+        // макросів по стравах немає — ставимо 0
+        kcal: 0, protein_g: 0, fat_g: 0, carbs_g: 0,
+        swap_suggestions: Array.isArray(m?.swap_suggestions) ? m.swap_suggestions : []
+      })) : [];
+
+      return {
+        day: d?.day || (i+1),
+        meals,
+        kcal:      num(sum?.kcal),
+        protein_g: num(sum?.protein_g),
+        fat_g:     num(sum?.fat_g),
+        carbs_g:   num(sum?.carbs_g),
+      };
+    });
+
+    const meta = computePlanMeta({ days });
+    const plan = {
+      meta, days,
+      shopping_list: raw?.shopping_list || [],
+      notes: raw?.prep_tips || [],
+    };
+    return plan;
+  }
+
+  // Інакше спробуємо хоча б створити «порожній» каркас
+  return { meta: { title: 'План харчування'}, days: [] };
+}
+
 // ---------- API ----------
 async function callAPI(params){
   const url = `${API}?${new URLSearchParams(params).toString()}`;
@@ -63,20 +109,20 @@ async function loadPlan(){
   const data = await callAPI({ act:'get', plan_id:planId, token });
   if (data?.error) throw new Error(data.error);
 
-  const plan = data?.plan;
-  if (!plan || !Array.isArray(plan?.days)) {
+  // data.plan може бути об'єктом або рядком
+  const normalized = normalizePlan(data?.plan ?? data); // підстрахуємось
+  if (!Array.isArray(normalized?.days) || !normalized.days.length) {
     throw new Error('Невірний формат плану (відсутні days[])');
   }
-  currentPlan = plan;
+  currentPlan = normalized;
   renderPlan(currentPlan);
 }
 
 // ---------- Рендер ----------
 function renderPlan(plan){
   const days = Array.isArray(plan?.days) ? plan.days : [];
-  if (!days.length) throw new Error('Порожній план: немає days[]');
-
   const m = computePlanMeta(plan);
+
   $('#title').textContent = m.title;
   $('#macros').textContent = `Ккал: ${m.kcal} | Б:${m.protein_g} Ж:${m.fat_g} В:${m.carbs_g}`;
 
@@ -139,8 +185,10 @@ async function doSwapMeal(day, mealType){
   try{
     tg?.MainButton?.showProgress?.();
     const res = await callAPI({ act:'swapMeal', plan_id:planId, token, day, meal_type:mealType });
-    if (res?.ok && res?.plan_updated) { currentPlan = res.plan_updated; renderPlan(currentPlan); }
-    else throw new Error(res?.error || 'swapMeal failed');
+    if (res?.ok && res?.plan_updated) {
+      currentPlan = normalizePlan(res.plan_updated);
+      renderPlan(currentPlan);
+    } else throw new Error(res?.error || 'swapMeal failed');
   } finally {
     tg?.MainButton?.hide?.();
   }
@@ -150,8 +198,10 @@ async function doSwapDay(day){
   try{
     tg?.MainButton?.showProgress?.();
     const res = await callAPI({ act:'swapDay', plan_id:planId, token, day });
-    if (res?.ok && res?.plan_updated) { currentPlan = res.plan_updated; renderPlan(currentPlan); }
-    else throw new Error(res?.error || 'swapDay failed');
+    if (res?.ok && res?.plan_updated) {
+      currentPlan = normalizePlan(res.plan_updated);
+      renderPlan(currentPlan);
+    } else throw new Error(res?.error || 'swapDay failed');
   } finally {
     tg?.MainButton?.hide?.();
   }
@@ -161,8 +211,10 @@ $('#regenPlan').onclick = async ()=>{
   try{
     tg?.MainButton?.showProgress?.();
     const res = await callAPI({ act:'swapPlan', plan_id:planId, token });
-    if (res?.ok && res?.plan_updated) { currentPlan = res.plan_updated; renderPlan(currentPlan); }
-    else throw new Error(res?.error || 'swapPlan failed');
+    if (res?.ok && res?.plan_updated) {
+      currentPlan = normalizePlan(res.plan_updated);
+      renderPlan(currentPlan);
+    } else throw new Error(res?.error || 'swapPlan failed');
   } finally {
     tg?.MainButton?.hide?.();
   }
