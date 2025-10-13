@@ -5,7 +5,7 @@ const qs = new URLSearchParams(location.search);
 const planId = qs.get('plan_id');
 const token  = qs.get('token');
 
-// Можеш підмінити на проксі n8n, якщо треба:
+// Можеш підмінити на n8n-проксі:
 // const API = 'https://<твій>.app.n8n.cloud/webhook/plan/get';
 const API = 'https://script.google.com/macros/s/AKfycbxq70NDjxdceKIDFVbmhdgPx5LWPrjrZFUhTtXpKL2sLbIDpZ1mO6YP1ph9-IMkWzRuPQ/exec';
 
@@ -13,6 +13,16 @@ let currentPlan = null;
 const $ = sel => document.querySelector(sel);
 
 // ---------- Хелпери ----------
+const UA_DAYS = ['Понеділок','Вівторок','Середа','Четвер','Пʼятниця','Субота','Неділя'];
+function normalizeDayLabel(v, idx){
+  if (!v) return UA_DAYS[(idx-1+7)%7] || `День ${idx}`;
+  const t = String(v).trim();
+  // якщо вже слово з нашого списку — лишаємо
+  const found = UA_DAYS.find(d => t.toLowerCase().includes(d.toLowerCase()));
+  if (found) return found;
+  return t; // наприклад "Day 1" або "Понеділок" іншим кейсом
+}
+
 function num(x){ const n = Number(x); return Number.isFinite(n) ? n : 0; }
 function sumMeals(meals = [], key) {
   return (meals || []).reduce((s, m) => s + num(m?.[key]), 0);
@@ -48,34 +58,25 @@ function computePlanMeta(plan = {}) {
   };
 }
 
-// ---- Нормалізація формату з meal_plan → days ----
+// ---- Нормалізація формату meal_plan → days (як у твоєму джерелі) ----
 function normalizePlan(raw) {
-  // якщо API повернув рядок (як у твоєму прикладі з "text")
-  if (typeof raw === 'string') {
-    try { raw = JSON.parse(raw); } catch { /* залишимо як є */ }
-  }
-  if (raw && raw.text && typeof raw.text === 'string') {
-    try { raw = JSON.parse(raw.text); } catch { /* залишимо як є */ }
-  }
+  if (typeof raw === 'string') { try { raw = JSON.parse(raw); } catch {} }
+  if (raw && raw.text && typeof raw.text === 'string') { try { raw = JSON.parse(raw.text); } catch {} }
 
-  // Якщо це вже наш контракт
   if (raw?.days && Array.isArray(raw.days)) return raw;
 
-  // Якщо це контракт з meal_plan
   if (Array.isArray(raw?.meal_plan)) {
     const days = raw.meal_plan.map((d, i) => {
       const sum = d?.daily_macros_summary || {};
       const meals = Array.isArray(d?.meals) ? d.meals.map(m => ({
         meal_type: m?.meal_type || '',
-        title: m?.meal_type || '',            // назву беремо з типу
+        title: m?.title || '', // якщо AI не дав title — нижче в рендері візьмемо meal_type
         description: m?.description || '',
-        // макросів по стравах немає — ставимо 0
-        kcal: 0, protein_g: 0, fat_g: 0, carbs_g: 0,
+        kcal: num(m?.kcal), protein_g: num(m?.protein_g), fat_g: num(m?.fat_g), carbs_g: num(m?.carbs_g),
         swap_suggestions: Array.isArray(m?.swap_suggestions) ? m.swap_suggestions : []
       })) : [];
-
       return {
-        day: d?.day || (i+1),
+        day: normalizeDayLabel(d?.day, i+1),
         meals,
         kcal:      num(sum?.kcal),
         protein_g: num(sum?.protein_g),
@@ -93,7 +94,6 @@ function normalizePlan(raw) {
     return plan;
   }
 
-  // Інакше спробуємо хоча б створити «порожній» каркас
   return { meta: { title: 'План харчування'}, days: [] };
 }
 
@@ -108,9 +108,7 @@ async function callAPI(params){
 async function loadPlan(){
   const data = await callAPI({ act:'get', plan_id:planId, token });
   if (data?.error) throw new Error(data.error);
-
-  // data.plan може бути об'єктом або рядком
-  const normalized = normalizePlan(data?.plan ?? data); // підстрахуємось
+  const normalized = normalizePlan(data?.plan ?? data);
   if (!Array.isArray(normalized?.days) || !normalized.days.length) {
     throw new Error('Невірний формат плану (відсутні days[])');
   }
@@ -126,10 +124,12 @@ function renderPlan(plan){
   $('#title').textContent = m.title;
   $('#macros').textContent = `Ккал: ${m.kcal} | Б:${m.protein_g} Ж:${m.fat_g} В:${m.carbs_g}`;
 
+  // кнопки днів — ТІЛЬКИ назви днів, без «День»
   const tabs = $('#tabs'); tabs.innerHTML = '';
   days.forEach((d, i) => {
     const b = document.createElement('button');
-    b.textContent = `День ${d?.day || i+1}`;
+    b.className = 'tab';
+    b.textContent = d?.day ? String(d.day) : normalizeDayLabel('', i+1);
     b.onclick = () => renderDay(d, i+1);
     tabs.appendChild(b);
   });
@@ -140,43 +140,52 @@ function renderDay(dayObj, dayNumber){
   const wrap = $('#content'); wrap.innerHTML = '';
   const dm = computeDayMacros(dayObj);
 
+  // Заголовок дня — лише назва дня
   const dayHeader = document.createElement('div');
   dayHeader.className = 'day-head';
   dayHeader.innerHTML = `
-    <h2>День ${dayObj?.day || dayNumber}</h2>
-    <div class="day-macros">Ккал: ${dm.kcal} | Б:${dm.protein_g} Ж:${dm.fat_g} В:${dm.carbs_g}</div>
+    <div>
+      <h2 class="day-title">${dayObj?.day || normalizeDayLabel('', dayNumber)}</h2>
+      <div class="day-macros">Ккал: ${dm.kcal} • Б:${dm.protein_g} • Ж:${dm.fat_g} • В:${dm.carbs_g}</div>
+    </div>
     <div class="day-actions">
-      <button id="swapDay">🔁 Замінити день</button>
+      <button id="swapDay" class="btn ghost">🔁 Замінити день</button>
     </div>
   `;
   wrap.appendChild(dayHeader);
 
+  // Карточки прийомів їжі
   (dayObj?.meals || []).forEach(m=>{
     const kcal = num(m?.kcal), p = num(m?.protein_g), f = num(m?.fat_g), c = num(m?.carbs_g);
+    const hasMacros = kcal || p || f || c;
+    const title = m?.title || m?.meal_type || '';
+
     const card = document.createElement('section');
-    card.className = 'meal';
+    card.className = 'meal card';
     card.innerHTML = `
       <div class="meal-head">
-        <h3>${m?.meal_type || ''}: ${m?.title || ''}</h3>
-        <div class="meal-macros">Ккал: ${kcal} | Б:${p} Ж:${f} В:${c}</div>
+        <h3 class="meal-title">${title}</h3>
+        ${hasMacros ? `<div class="meal-macros">Ккал: ${kcal} • Б:${p} • Ж:${f} • В:${c}</div>` : ''}
       </div>
-      <p>${m?.description || ''}</p>
+      <p class="meal-desc">${m?.description || ''}</p>
       ${Array.isArray(m?.swap_suggestions) && m.swap_suggestions.length
-        ? `<details><summary>Можливі заміни</summary><ul>${
-            m.swap_suggestions.map(s=>`<li>${s}</li>`).join('')
-          }</ul></details>`
+        ? `<details class="swap-list">
+             <summary>Можливі заміни</summary>
+             <ul>${m.swap_suggestions.map(s=>`<li>${s}</li>`).join('')}</ul>
+           </details>`
         : ''
       }
       <div class="meal-actions">
-        <button class="swapMeal">🔄 Замінити страву</button>
+        <button class="btn" data-meal="${m?.meal_type || ''}">🔄 Замінити страву</button>
       </div>
     `;
-    card.querySelector('.swapMeal').onclick = async ()=>{
+    card.querySelector('.btn[data-meal]')?.addEventListener('click', async ()=>{
       await doSwapMeal(dayNumber, m?.meal_type || '');
-    };
+    });
     wrap.appendChild(card);
   });
 
+  // події
   $('#swapDay').onclick = async ()=> { await doSwapDay(dayNumber); };
 }
 
@@ -219,6 +228,46 @@ $('#regenPlan').onclick = async ()=>{
     tg?.MainButton?.hide?.();
   }
 };
+
+// ---------- Shopping List Modal ----------
+function renderShoppingList(){
+  const m = $('#shoppingModal');
+  if (!m) return;
+  const body = m.querySelector('.modal-body');
+  body.innerHTML = '';
+
+  const list = currentPlan?.shopping_list;
+  if (!list || (Array.isArray(list) && !list.length)) {
+    body.innerHTML = '<p>Список покупок відсутній.</p>';
+    return;
+  }
+
+  // підтримка і формату-об’єкта, і масиву
+  if (!Array.isArray(list)) {
+    Object.entries(list).forEach(([category, items])=>{
+      const card = document.createElement('section');
+      card.className = 'card';
+      let itemsHtml = '';
+      if (Array.isArray(items)) {
+        itemsHtml = items.map(i => `<li>${i.name ? `${i.name}: ${i.qty||''}` : i}</li>`).join('');
+      } else {
+        itemsHtml = Object.entries(items).map(([name, qty]) => `<li>${name}: ${qty}</li>`).join('');
+      }
+      card.innerHTML = `<h4>${category}</h4><ul>${itemsHtml}</ul>`;
+      body.appendChild(card);
+    });
+  } else {
+    const ul = document.createElement('ul');
+    ul.innerHTML = list.map(i => `<li>${i.name}: ${i.qty||''}</li>`).join('');
+    body.appendChild(ul);
+  }
+}
+
+$('#openShopping').onclick = ()=>{
+  renderShoppingList();
+  $('#shoppingModal').classList.add('open');
+};
+$('#closeShopping').onclick = ()=> $('#shoppingModal').classList.remove('open');
 
 // ---------- Старт ----------
 loadPlan().catch(err=>{
