@@ -59,13 +59,26 @@ function normalizePlan(raw){
   if (Array.isArray(raw?.meal_plan)) {
     const days = raw.meal_plan.map((d,i)=>{
       const sum = d?.daily_macros_summary || {};
-      const meals = Array.isArray(d?.meals) ? d.meals.map(m=>({
-        meal_type: m?.meal_type || '',
-        title: m?.title || '', // якщо відсутній — у рендері підміню на meal_type
-        description: m?.description || '',
-        kcal: num(m?.kcal), protein_g: num(m?.protein_g), fat_g: num(m?.fat_g), carbs_g: num(m?.carbs_g),
-        swap_suggestions: Array.isArray(m?.swap_suggestions) ? m.swap_suggestions : []
-      })) : [];
+      const meals = Array.isArray(d?.meals) ? d.meals.map(m=>{
+        const mac = m?.macros || {};
+        return {
+          meal_type: m?.meal_type || '',
+          title: m?.dish_name || m?.title || m?.meal_type || '',      // << назва страви
+          description: m?.description || '',
+
+          // макроси з вкладеного поля "macros"
+          kcal: num(mac?.kcal),
+          protein_g: num(mac?.protein_g),
+          fat_g: num(mac?.fat_g),
+          carbs_g: num(mac?.carbs_g),
+
+          swap_suggestions: Array.isArray(m?.swap_suggestions) ? m.swap_suggestions : [],
+
+          // нові поля:
+          ingredients: Array.isArray(m?.ingredients) ? m.ingredients : [],
+          preparation_instructions: m?.preparation_instructions || ''
+        };
+      }) : [];
       return {
         day: normalizeDayLabel(d?.day, i+1),
         meals,
@@ -157,6 +170,26 @@ function renderDay(dayObj, dayNumber){
     const hasMacros = kcal||p||f||c;
     const title = m?.title || m?.meal_type || '';
 
+    // інгредієнти
+    const ingHtml = Array.isArray(m?.ingredients) && m.ingredients.length
+      ? `<details class="ing-list">
+           <summary>Інгредієнти</summary>
+           <ul>${
+             m.ingredients.map(it=>{
+               const qty =
+                 (it.raw_grams ? `${it.raw_grams} г` : it.cooked_grams ? `${it.cooked_grams} г (пригот.)` : '')
+                 + (it.quantity_details ? ` — ${it.quantity_details}` : '');
+               return `<li>${it.item}${qty.trim() ? `: ${qty.trim()}` : ''}</li>`;
+             }).join('')
+           }</ul>
+         </details>`
+      : '';
+
+    // інструкції
+    const instrHtml = m?.preparation_instructions
+      ? `<details class="prep"><summary>Як приготувати</summary><p>${m.preparation_instructions}</p></details>`
+      : '';
+
     const card = document.createElement('section');
     card.className = 'meal card';
     card.innerHTML = `
@@ -165,6 +198,8 @@ function renderDay(dayObj, dayNumber){
         ${hasMacros ? `<div class="meal-macros">Ккал: ${kcal} • Б:${p} • Ж:${f} • В:${c}</div>` : ''}
       </div>
       <p class="meal-desc">${m?.description || ''}</p>
+      ${ingHtml}
+      ${instrHtml}
       ${Array.isArray(m?.swap_suggestions) && m.swap_suggestions.length
         ? `<details class="swap-list"><summary>Можливі заміни</summary>
              <ul>${m.swap_suggestions.map(s=>`<li>${s}</li>`).join('')}</ul>
@@ -215,17 +250,30 @@ function renderShoppingList(){
   if (!list || (Array.isArray(list) && !list.length)) { body.innerHTML='<p>Список покупок відсутній.</p>'; return; }
 
   if (!Array.isArray(list)) {
+    // формат категорій
     Object.entries(list).forEach(([cat, items])=>{
       const card = document.createElement('section'); card.className='card';
       let itemsHtml = '';
-      if (Array.isArray(items)) itemsHtml = items.map(i=>`<li>${i.name ? `${i.name}: ${i.qty||''}` : i}</li>`).join('');
-      else itemsHtml = Object.entries(items).map(([name,qty])=>`<li>${name}: ${qty}</li>`).join('');
+      if (Array.isArray(items)) {
+        itemsHtml = items.map(i=>{
+          const qty = (i.quantity ?? i.qty ?? '')
+            + (i.unit ? ` ${i.unit}` : '');
+        return `<li>${i.item || i.name}${String(qty).trim() ? `: ${qty}` : ''}</li>`;
+        }).join('');
+      } else {
+        itemsHtml = Object.entries(items).map(([name,qty])=>`<li>${name}: ${qty}</li>`).join('');
+      }
       card.innerHTML = `<h4>${cat}</h4><ul>${itemsHtml}</ul>`;
       body.appendChild(card);
     });
   } else {
+    // твій поточний формат: [{item, quantity, unit}]
     const ul = document.createElement('ul');
-    ul.innerHTML = list.map(i=>`<li>${i.name}: ${i.qty||''}</li>`).join('');
+    ul.innerHTML = list.map(i=>{
+      const qty = (i.quantity != null ? i.quantity : '')
+        + (i.unit ? ` ${i.unit}` : '');
+      return `<li>${i.item}${String(qty).trim() ? `: ${qty}` : ''}</li>`;
+    }).join('');
     body.appendChild(ul);
   }
 }
@@ -235,6 +283,13 @@ $('#openShopping')?.addEventListener('click', ()=>{
 });
 $('#closeShopping')?.addEventListener('click', ()=>{
   $('#shoppingModal')?.classList.remove('open');
+});
+// клік по бекдропу + ESC
+$('#shoppingModal')?.addEventListener('click', (e)=>{
+  if (e.target === e.currentTarget) e.currentTarget.classList.remove('open');
+});
+document.addEventListener('keydown', (e)=>{
+  if (e.key === 'Escape') $('#shoppingModal')?.classList.remove('open');
 });
 
 // ---------- старт ----------
