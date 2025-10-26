@@ -5,8 +5,7 @@ const qs = new URLSearchParams(location.search);
 const planId = qs.get('plan_id');
 const token  = qs.get('token');
 
-// Можеш підмінити на n8n-проксі:
-// const API = 'https://<твій>.app.n8n.cloud/webhook/plan/get';
+// можна замінити на n8n-проксі
 const API = 'https://script.google.com/macros/s/AKfycbxq70NDjxdceKIDFVbmhdgPx5LWPrjrZFUhTtXpKL2sLbIDpZ1mO6YP1ph9-IMkWzRuPQ/exec';
 
 let currentPlan = null;
@@ -50,55 +49,80 @@ function computePlanMeta(plan={}){
   };
 }
 
-// ---- нормалізація meal_plan → days ----
+// ---- НОРМАЛІЗАЦІЯ будь-якого з форматів у days[] ----
 function normalizePlan(raw){
+  // розпакувати якщо прийшло текстом або в полі text
   if (typeof raw === 'string') { try { raw = JSON.parse(raw); } catch {} }
   if (raw && raw.text && typeof raw.text === 'string') { try { raw = JSON.parse(raw.text); } catch {} }
+
+  // якщо вже у каноні
   if (raw?.days && Array.isArray(raw.days)) return raw;
 
-  if (Array.isArray(raw?.meal_plan)) {
-    const days = raw.meal_plan.map((d,i)=>{
-      const sum = d?.daily_macros_summary || {};
-      const meals = Array.isArray(d?.meals) ? d.meals.map(m=>{
-        const mac = m?.macros || {};
+  // хелпери для вибору поля
+  const pick = (...keys) => (obj={}) => {
+    for (const k of keys) {
+      const v = obj?.[k];
+      if (v !== undefined && v !== null && v !== '') return v;
+    }
+    return undefined;
+  };
+  const getDayLabel   = pick('day','day_of_week');
+  const getMealTitle  = pick('title','name','dish_name','meal_type');
+  const getMealDesc   = pick('description','instructions');
+  const getMealMacros = (m)=> m?.macros || m?.nutritional_info || {};
+  const getDayMacros  = (d)=> d?.daily_total || {
+    kcal:      (d?.meals||[]).reduce((s,m)=> s + (Number(getMealMacros(m).kcal)||0),0),
+    protein_g: (d?.meals||[]).reduce((s,m)=> s + (Number(getMealMacros(m).protein_g)||0),0),
+    fat_g:     (d?.meals||[]).reduce((s,m)=> s + (Number(getMealMacros(m).fat_g)||0),0),
+    carbs_g:   (d?.meals||[]).reduce((s,m)=> s + (Number(getMealMacros(m).carbs_g)||0),0),
+  };
+
+  // підтримка верхніх ключів: meal_plan | week_plan
+  const srcDays = Array.isArray(raw?.meal_plan) ? raw.meal_plan
+                : Array.isArray(raw?.week_plan) ? raw.week_plan
+                : null;
+
+  if (Array.isArray(srcDays)) {
+    const days = srcDays.map((d, i) => {
+      const sum = getDayMacros(d);
+      const meals = Array.isArray(d?.meals) ? d.meals.map(m => {
+        const mm = getMealMacros(m);
         return {
           meal_type: m?.meal_type || '',
-          title: m?.dish_name || m?.title || m?.meal_type || '',      // << назва страви
-          description: m?.description || '',
-
-          // макроси з вкладеного поля "macros"
-          kcal: num(mac?.kcal),
-          protein_g: num(mac?.protein_g),
-          fat_g: num(mac?.fat_g),
-          carbs_g: num(mac?.carbs_g),
-
-          swap_suggestions: Array.isArray(m?.swap_suggestions) ? m.swap_suggestions : [],
-
-          // нові поля:
-          ingredients: Array.isArray(m?.ingredients) ? m.ingredients : [],
-          preparation_instructions: m?.preparation_instructions || ''
+          title:       getMealTitle(m) || '',
+          description: getMealDesc(m) || '',
+          kcal:      Number(mm?.kcal)      || 0,
+          protein_g: Number(mm?.protein_g) || 0,
+          fat_g:     Number(mm?.fat_g)     || 0,
+          carbs_g:   Number(mm?.carbs_g)   || 0,
+          swap_suggestions: Array.isArray(m?.swap_suggestions) ? m.swap_suggestions : []
         };
       }) : [];
+
       return {
-        day: normalizeDayLabel(d?.day, i+1),
+        day:        normalizeDayLabel(getDayLabel(d), i+1),
         meals,
-        kcal:      num(sum?.kcal),
-        protein_g: num(sum?.protein_g),
-        fat_g:     num(sum?.fat_g),
-        carbs_g:   num(sum?.carbs_g),
+        kcal:      Number(sum?.kcal)      || 0,
+        protein_g: Number(sum?.protein_g) || 0,
+        fat_g:     Number(sum?.fat_g)     || 0,
+        carbs_g:   Number(sum?.carbs_g)   || 0,
       };
     });
-    const meta = computePlanMeta({days});
+
+    const meta = computePlanMeta({ days });
     return {
-      meta, days,
-      shopping_list: raw?.shopping_list || [],
-      notes: raw?.prep_tips || [],
+      meta,
+      days,
+      shopping_list: raw?.shopping_list ?? [],
+      notes: raw?.prep_tips ?? [],
+      safety: raw?.safety || {}
     };
   }
-  return { meta:{title:'План харчування'}, days:[] };
+
+  return { meta:{ title:'План харчування' }, days:[] };
 }
 
-// ---------- API з таймаутом ----------
+// ---------- API (таймаут + no-store) ----------
 async function callAPI(params){
   const url = `${API}?${new URLSearchParams(params).toString()}`;
   const ctrl = new AbortController();
@@ -119,9 +143,7 @@ async function callAPI(params){
 
 // ---------- завантаження ----------
 async function loadPlan(){
-  if (!planId || !token) {
-    throw new Error('Не передані plan_id або token у посиланні');
-  }
+  if (!planId || !token) throw new Error('Не передані plan_id або token у посиланні');
   const data = await callAPI({ act:'get', plan_id:planId, token });
   if (data?.error) throw new Error(data.error);
   const normalized = normalizePlan(data?.plan ?? data);
@@ -170,26 +192,6 @@ function renderDay(dayObj, dayNumber){
     const hasMacros = kcal||p||f||c;
     const title = m?.title || m?.meal_type || '';
 
-    // інгредієнти
-    const ingHtml = Array.isArray(m?.ingredients) && m.ingredients.length
-      ? `<details class="ing-list">
-           <summary>Інгредієнти</summary>
-           <ul>${
-             m.ingredients.map(it=>{
-               const qty =
-                 (it.raw_grams ? `${it.raw_grams} г` : it.cooked_grams ? `${it.cooked_grams} г (пригот.)` : '')
-                 + (it.quantity_details ? ` — ${it.quantity_details}` : '');
-               return `<li>${it.item}${qty.trim() ? `: ${qty.trim()}` : ''}</li>`;
-             }).join('')
-           }</ul>
-         </details>`
-      : '';
-
-    // інструкції
-    const instrHtml = m?.preparation_instructions
-      ? `<details class="prep"><summary>Як приготувати</summary><p>${m.preparation_instructions}</p></details>`
-      : '';
-
     const card = document.createElement('section');
     card.className = 'meal card';
     card.innerHTML = `
@@ -198,8 +200,6 @@ function renderDay(dayObj, dayNumber){
         ${hasMacros ? `<div class="meal-macros">Ккал: ${kcal} • Б:${p} • Ж:${f} • В:${c}</div>` : ''}
       </div>
       <p class="meal-desc">${m?.description || ''}</p>
-      ${ingHtml}
-      ${instrHtml}
       ${Array.isArray(m?.swap_suggestions) && m.swap_suggestions.length
         ? `<details class="swap-list"><summary>Можливі заміни</summary>
              <ul>${m.swap_suggestions.map(s=>`<li>${s}</li>`).join('')}</ul>
@@ -249,30 +249,32 @@ function renderShoppingList(){
   const list = currentPlan?.shopping_list;
   if (!list || (Array.isArray(list) && !list.length)) { body.innerHTML='<p>Список покупок відсутній.</p>'; return; }
 
+  // об’єкт категорій або масив
   if (!Array.isArray(list)) {
-    // формат категорій
     Object.entries(list).forEach(([cat, items])=>{
       const card = document.createElement('section'); card.className='card';
       let itemsHtml = '';
       if (Array.isArray(items)) {
         itemsHtml = items.map(i=>{
-          const qty = (i.quantity ?? i.qty ?? '')
-            + (i.unit ? ` ${i.unit}` : '');
-        return `<li>${i.item || i.name}${String(qty).trim() ? `: ${qty}` : ''}</li>`;
+          const name = i.item ?? i.name ?? '—';
+          const qty  = i.quantity ?? i.qty ?? '';
+          const unit = i.unit ? ` ${i.unit}` : '';
+          return `<li><span>${name}</span><span>${qty}${unit}</span></li>`;
         }).join('');
       } else {
-        itemsHtml = Object.entries(items).map(([name,qty])=>`<li>${name}: ${qty}</li>`).join('');
+        itemsHtml = Object.entries(items).map(([name,qty])=>`<li><span>${name}</span><span>${qty}</span></li>`).join('');
       }
       card.innerHTML = `<h4>${cat}</h4><ul>${itemsHtml}</ul>`;
       body.appendChild(card);
     });
   } else {
-    // твій поточний формат: [{item, quantity, unit}]
     const ul = document.createElement('ul');
     ul.innerHTML = list.map(i=>{
-      const qty = (i.quantity != null ? i.quantity : '')
-        + (i.unit ? ` ${i.unit}` : '');
-      return `<li>${i.item}${String(qty).trim() ? `: ${qty}` : ''}</li>`;
+      const name = i.item ?? i.name ?? '—';
+      const qty  = i.quantity ?? i.qty ?? '';
+      const unit = i.unit ? ` ${i.unit}` : '';
+      const right = (qty || unit) ? `${qty}${unit}` : '';
+      return `<li><span>${name}</span><span>${right}</span></li>`;
     }).join('');
     body.appendChild(ul);
   }
@@ -283,13 +285,6 @@ $('#openShopping')?.addEventListener('click', ()=>{
 });
 $('#closeShopping')?.addEventListener('click', ()=>{
   $('#shoppingModal')?.classList.remove('open');
-});
-// клік по бекдропу + ESC
-$('#shoppingModal')?.addEventListener('click', (e)=>{
-  if (e.target === e.currentTarget) e.currentTarget.classList.remove('open');
-});
-document.addEventListener('keydown', (e)=>{
-  if (e.key === 'Escape') $('#shoppingModal')?.classList.remove('open');
 });
 
 // ---------- старт ----------
