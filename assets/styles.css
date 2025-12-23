@@ -1,15 +1,25 @@
 :root{
-  --bg:#0f1116;
-  --card:#141823;
-  --muted:#9aa4b2;
-  --line:#2a3142;
-  --accent:#26d6c8;
-  --accent-2:#7cf0e7;
-  --text:#eef2f7;
+  /* Base (dark graphite like the "Art" / brain part) */
+  --bg:#0f1213;          /* deep graphite */
+  --card:#151a1b;        /* slightly lighter graphite */
+  --muted:#9aa3a8;       /* cool gray */
+  --line:#2a3336;        /* graphite divider */
+  --text:#eef2f4;        /* clean near-white */
+
+  /* Brand greens (leaf) */
+  --accent:#43b02a;      /* primary leaf green */
+  --accent-2:#7adf4e;    /* lighter green for links/secondary */
+  --accent-3:#1f7a1a;    /* deep green for pressed/hover states */
 }
 
+/* Base */
 *{ box-sizing:border-box }
-body{ margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; background:var(--bg); color:var(--text); }
+body{
+  margin:0;
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
+  background:var(--bg);
+  color:var(--text);
+}
 header, .content, .tabs{ padding:12px; }
 
 h1{ margin:8px 0 0; font-size:22px; }
@@ -21,78 +31,106 @@ h4{ margin:8px 0 6px; font-size:15px; }
 
 .actions{ display:flex; gap:8px; flex-wrap:wrap; }
 
+/* Buttons */
 .btn{
   background:var(--accent);
-  color:#0a0f12;
+  color:#07110a;                 /* readable on green */
   border:none; outline:none;
   padding:8px 12px;
   border-radius:12px;
-  font-weight:600;
+  font-weight:700;
   cursor:pointer;
+  box-shadow:0 6px 18px rgba(67,176,42,0.18);
 }
-.btn:hover{ filter:brightness(1.08); }
+.btn:hover{ filter:brightness(1.06); }
+.btn:active{
+  background:var(--accent-3);
+  transform:translateY(1px);
+}
 .btn.ghost{
   background:transparent;
   border:1px solid var(--line);
   color:var(--text);
 }
+.btn.ghost:hover{
+  border-color:rgba(122,223,78,0.55);
+}
 
+/* Tabs */
 .tabs{
-  display:flex; gap:8px; overflow:auto; padding-bottom:6px; margin-bottom:8px;
+  display:flex; gap:8px; overflow:auto;
+  padding-bottom:6px; margin-bottom:8px;
 }
 .tab{
-  background:#1a2030;
+  background:#171d1e;
   border:1px solid var(--line);
   color:var(--text);
   padding:8px 10px;
   border-radius:12px;
   white-space:nowrap;
 }
-.tab:hover{ background:#20283a; }
+.tab:hover{
+  background:#1b2324;
+  border-color:rgba(122,223,78,0.35);
+}
 
+/* Day header */
 .day-head{
-  display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin:8px 0 12px;
+  display:flex; justify-content:space-between; align-items:flex-start;
+  gap:10px; margin:8px 0 12px;
 }
 .day-title{ margin:0; }
 .day-macros{ color:var(--muted); margin-top:4px; }
 .day-actions .btn{ padding:6px 10px; }
 
+/* Cards */
 .card{
   background:var(--card);
   border:1px solid var(--line);
   border-radius:16px;
   padding:12px;
   margin:10px 0;
-  box-shadow:0 1px 0 rgba(255,255,255,0.04) inset;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.04) inset,
+    0 10px 26px rgba(0,0,0,0.22);
 }
 
+/* Meal blocks */
 .meal .meal-head{
-  display:flex; justify-content:space-between; align-items:baseline; gap:12px;
+  display:flex; justify-content:space-between; align-items:baseline;
+  gap:12px;
 }
-.meal-title{ margin:0; font-weight:700; }
+.meal-title{ margin:0; font-weight:800; }
 .meal-macros{ color:var(--muted); font-size:13px; }
-.meal-desc{ margin:8px 0 4px; line-height:1.4; color:#e6eaf0; }
+.meal-desc{ margin:8px 0 4px; line-height:1.4; color:#e6ecef; }
 .meal-actions{ margin-top:8px; }
+
+/* Links / details */
 .swap-list{ margin-top:6px; }
 .swap-list summary{ cursor:pointer; color:var(--accent-2); }
-
-/* Ingredients & Instructions */
 .ing, .instr { margin-top:8px; }
 .ing summary, .instr summary { cursor:pointer; color:var(--accent-2); }
+
+/* Ingredients list */
 .ing-list{ list-style:none; margin:6px 0 0; padding:0; }
 .ing-list li{
   display:flex; justify-content:space-between; gap:8px;
-  padding:6px 8px; border-bottom:1px dashed var(--line);
+  padding:6px 8px;
+  border-bottom:1px dashed rgba(42,51,54,0.9);
 }
-.ing-list li span:first-child{ color:#eaf1f7; }
+.ing-list li span:first-child{ color:#eef2f4; }
 .ing-list li span:last-child{ color:var(--muted); }
-.instr-text{ margin-top:6px; line-height:1.5; color:#e6eaf0; white-space:pre-wrap; }
+.instr-text{
+  margin-top:6px; line-height:1.5;
+  color:#e6ecef; white-space:pre-wrap;
+}
 
-/* Shopping modal */
+/* Modal */
 .modal{
   position:fixed; inset:0;
   display:none; align-items:center; justify-content:center;
-  background:rgba(0,0,0,0.6); z-index:40; padding:16px;
+  background:rgba(0,0,0,0.62);
+  z-index:40; padding:16px;
 }
 .modal.open{ display:flex; }
 .modal-dialog{
@@ -103,10 +141,15 @@ h4{ margin:8px 0 6px; font-size:15px; }
   border-radius:16px;
   padding:12px;
   position:relative;
+  box-shadow:0 18px 60px rgba(0,0,0,0.45);
 }
 .modal-head{
-  display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;
-  position:sticky; top:0; background:var(--card); z-index:2; padding-bottom:6px;
+  display:flex; justify-content:space-between; align-items:center;
+  margin-bottom:8px;
+  position:sticky; top:0;
+  background:var(--card);
+  z-index:2; padding-bottom:6px;
+  border-bottom:1px solid rgba(42,51,54,0.6);
 }
 .modal-body{
   max-height: calc(90vh - 56px);
@@ -115,9 +158,11 @@ h4{ margin:8px 0 6px; font-size:15px; }
 .modal-body .card{ margin:8px 0; }
 .modal-body ul{ margin:6px 0 0 16px; }
 
+/* Shopping list */
 .shop-list{ list-style:none; padding:0; margin:0; }
 .shop-list li{
   display:flex; justify-content:space-between; gap:10px;
-  padding:8px 10px; border-bottom:1px dashed var(--line);
+  padding:8px 10px;
+  border-bottom:1px dashed rgba(42,51,54,0.9);
 }
 .shop-list li span:last-child{ color:var(--muted); }
