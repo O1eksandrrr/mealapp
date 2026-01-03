@@ -70,7 +70,7 @@ function normalizePlan(raw){
     return undefined;
   };
   const getDayLabel   = pick('day','day_of_week');
-  const getMealTitle  = pick('title','name','dish_name','meal_type');
+  const getMealTitle  = pick('title','name','dish_name' || 'meal_name','meal_type');
   const getMealDesc   = pick('description');
   const getMealInstr  = pick('instructions','preparation_instructions');
   const getMealMacros = (m)=> m?.macros || m?.nutritional_info || {};
@@ -355,3 +355,4 @@ loadPlan().catch(err=>{
   $('#macros') && ($('#macros').textContent = err?.message || 'Щось пішло не так');
   console.error('Plan load error:', err);
 });
+
