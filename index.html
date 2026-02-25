@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>NutriArt AI — План</title>
+  <link rel="stylesheet" href="assets/styles.css" />
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+  <div class="app">
+    <header class="top">
+      <div>
+        <h1 id="title">План харчування</h1>
+        <div id="macros" class="sub">—</div>
+        <div id="hint" class="hint"></div>
+      </div>
+
+      <div class="top-actions">
+        <button id="openShopping" class="btn ghost">🛒 Список покупок</button>
+      </div>
+    </header>
+
+    <nav id="tabs" class="tabs"></nav>
+    <main id="content" class="content"></main>
+  </div>
+
+  <!-- Login / TG ID gate -->
+  <div id="gate" class="modal open" aria-hidden="false">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3>Підтвердження доступу</h3>
+      </div>
+      <div class="modal-body">
+        <p class="muted">
+          Щоб відкрити план, потрібен <b>Telegram ID</b>.
+        </p>
+
+        <form id="tgForm" class="form">
+          <label class="label" for="tgIdInput">Telegram ID</label>
+          <input id="tgIdInput" class="input" inputmode="numeric" autocomplete="off" placeholder="Напр. 123456789" />
+          <div class="form-actions">
+            <button type="submit" class="btn">Відкрити план</button>
+          </div>
+          <div id="gateHint" class="hint"></div>
+          <p class="muted small">
+            Порада: якщо ти відкриваєш через Telegram кнопку WebApp, поле підставиться автоматично.
+          </p>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shopping modal -->
+  <div id="shoppingModal" class="modal" aria-hidden="true">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3>Список покупок</h3>
+        <button id="closeShopping" class="btn ghost">✕</button>
+      </div>
+      <div class="modal-body"></div>
+    </div>
+  </div>
+
+  <script src="assets/app.js"></script>
+</body>
+</html>
