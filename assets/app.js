@@ -370,11 +370,11 @@ $('#shoppingModal')?.addEventListener('click', (e)=>{
 // -------------------- Gate logic --------------------
 function getTgIdFromUrl(){
   const qs = new URLSearchParams(location.search);
-  return qs.get('tg_id') || qs.get('telegram_id') || qs.get('user_id');
+  return qs.get('tg_id') || qs.get('telegram_id') || qs.get('plan_id');
 }
 
 function getTgIdFromTelegram(){
-  return tg?.initDataUnsafe?.user?.id || tg?.initDataUnsafe?.chat?.id || null;
+  return tg?.initDataUnsafe?.plan?.id || tg?.initDataUnsafe?.chat?.id || null;
 }
 
 function isValidTgId(v){
