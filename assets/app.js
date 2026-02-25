@@ -25,10 +25,10 @@ const $ = (sel) => document.querySelector(sel);
 const UA_DAYS = ['Понеділок','Вівторок','Середа','Четвер','Пʼятниця','Субота','Неділя'];
 
 // ====================== CONFIG ======================
-const SHEET_ID = 'PASTE_YOUR_SHEET_ID_HERE'; // e.g. 1AbC... from https://docs.google.com/spreadsheets/d/<ID>/edit
-const SHEET_TAB = 'Plans';                   // your tab name
-const COL_TG_ID = 1;                         // Column A
-const COL_PLAN  = 2;                         // Column B
+const SHEET_ID = '1dWR-VpkGtmorDU1qAAIwbwk7SZxrozY15uN-KcyKwug'; // e.g. 1AbC... from https://docs.google.com/spreadsheets/d/<ID>/edit
+const SHEET_TAB = 'plans';                   // your tab name
+const COL_TG_ID = 2;                         // Column A
+const COL_PLAN  = 3;                         // Column B
 // ====================================================
 
 let currentPlan = null;
