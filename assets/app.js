@@ -25,7 +25,7 @@ const $ = (sel) => document.querySelector(sel);
 const UA_DAYS = ['Понеділок','Вівторок','Середа','Четвер','Пʼятниця','Субота','Неділя'];
 
 // ====================== CONFIG ======================
-const SHEET_ID = '1dWR-VpkGtmorDU1qAAIwbwk7SZxrozY15uN-KcyKwug'; // e.g. 1AbC... from https://docs.google.com/spreadsheets/d/<ID>/edit
+const SHEET_ID = '1dWR-VpkGtmorDU1qAAIwbwk7SZxrozY15uN-KcyKwug/edit?gid=1931947013#gid=1931947013'; // e.g. 1AbC... from https://docs.google.com/spreadsheets/d/<ID>/edit
 const SHEET_TAB = 'plans';                   // your tab name
 const COL_TG_ID = 2;                         // Column A
 const COL_PLAN  = 3;                         // Column B
