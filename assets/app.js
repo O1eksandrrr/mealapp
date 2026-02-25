@@ -1,17 +1,28 @@
+// NutriArt AI — Plan viewer (1 user = 1 plan)
+//
+// New logic:
+// - We DO NOT require plan_id/token in URL.
+// - We identify the user via Telegram WebApp initDataUnsafe (and recommend validating initData on backend).
+// - We load / swap using user_id.
+// - Optional: allow ?user_id=123 in URL for testing in browser (not for production).
+
 // --- Telegram WebApp bootstrap ---
 const tg = window.Telegram?.WebApp;
 if (tg) { try { tg.expand(); tg.ready(); } catch {} }
 
-// --- Query params ---
-const qs = new URLSearchParams(location.search);
-const planId = qs.get('plan_id');
-const token  = qs.get('token');
-
-// const API = 'https://<your>.app.n8n.cloud/webhook/plan/get';
+// --- Config ---
 const API = 'https://script.google.com/macros/s/AKfycbxq70NDjxdceKIDFVbmhdgPx5LWPrjrZFUhTtXpKL2sLbIDpZ1mO6YP1ph9-IMkWzRuPQ/exec';
 
+// Backend actions (rename here if your backend uses different names)
+const ACT = {
+  getByUser: 'getByUser',
+  swapMealByUser: 'swapMealByUser',
+  swapDayByUser: 'swapDayByUser',
+  swapPlanByUser: 'swapPlanByUser',
+};
+
 let currentPlan = null;
-const $ = sel => document.querySelector(sel);
+const $ = (sel) => document.querySelector(sel);
 
 // ---------- Helpers ----------
 const UA_DAYS = ['Понеділок','Вівторок','Середа','Четвер','Пʼятниця','Субота','Неділя'];
@@ -53,6 +64,15 @@ function computePlanMeta(plan={}){
   };
 }
 
+// ---------- UI hint ----------
+function showHint(text, kind='info'){
+  const el = $('#hint');
+  if (!el) return;
+  el.hidden = !text;
+  el.textContent = text || '';
+  el.classList.toggle('error', kind === 'error');
+}
+
 // ---------- Normalization (supports meal_plan / week_plan / days) ----------
 function normalizePlan(raw){
   // allow string / {text:"...json..."}
@@ -70,7 +90,7 @@ function normalizePlan(raw){
     return undefined;
   };
   const getDayLabel   = pick('day','day_of_week');
-  const getMealTitle  = pick('title','name','dish_name' || 'meal_name','meal_type');
+  const getMealTitle  = pick('title','name','dish_name','meal_name','meal_type');
   const getMealDesc   = pick('description');
   const getMealInstr  = pick('instructions','preparation_instructions');
   const getMealMacros = (m)=> m?.macros || m?.nutritional_info || {};
@@ -96,9 +116,7 @@ function normalizePlan(raw){
           const name = it?.item ?? it?.name ?? '—';
           const qRaw = it?.quantity ?? it?.qty ?? it?.quantity_raw_g ?? it?.raw_grams ?? it?.raw_g;
           const qCook = it?.quantity_cooked_g ?? it?.cooked_grams ?? it?.cooked_g;
-          const unit = it?.unit || (
-            (qRaw || qCook) ? 'г' : ''
-          );
+          const unit = it?.unit || ((qRaw || qCook) ? 'г' : '');
           const qty = (qRaw ?? qCook ?? '');
           const qtyStr = (qty !== '' ? `${qty}${unit?` ${unit}`:''}` : (it?.quantity_details || ''));
           return { name, qty: qtyStr };
@@ -141,6 +159,20 @@ function normalizePlan(raw){
   return { meta:{ title:'План харчування' }, days:[] };
 }
 
+// ---------- Identify user (Telegram user id) ----------
+function getTelegramUserId(){
+  // Primary path (Telegram WebApp)
+  const id = tg?.initDataUnsafe?.user?.id || tg?.initDataUnsafe?.chat?.id;
+  if (id) return String(id);
+
+  // Optional dev/test path: ?user_id=123 (do not rely on this in production)
+  const qs = new URLSearchParams(location.search);
+  const qid = qs.get('user_id') || qs.get('uid');
+  if (qid) return String(qid);
+
+  return null;
+}
+
 // ---------- API (timeout + no-store) ----------
 async function callAPI(params){
   const url = `${API}?${new URLSearchParams(params).toString()}`;
@@ -162,16 +194,28 @@ async function callAPI(params){
 
 // ---------- Load ----------
 async function loadPlan(){
-  if (!planId || !token) throw new Error('Не передані plan_id або token у посиланні');
-  const data = await callAPI({ act:'get', plan_id:planId, token });
+  const userId = getTelegramUserId();
+  if (!userId){
+    showHint('Відкрий цей екран через кнопку в Telegram (WebApp), щоб визначити user id.', 'error');
+    throw new Error('Не вдалося визначити Telegram user id');
+  }
+
+  // Strongly recommended: backend must validate initData signature
+  const initData = tg?.initData || '';
+
+  showHint('Завантажую план…');
+  const data = await callAPI({ act: ACT.getByUser, user_id: userId, initData });
+
   if (data?.error) throw new Error(data.error);
 
   const normalized = normalizePlan(data?.plan ?? data);
   if (!Array.isArray(normalized?.days) || !normalized.days.length) {
-    throw new Error('Невірний формат плану (відсутні days[])');
+    throw new Error('План ще не згенерований або повернувся в неправильному форматі (немає days[])');
   }
+
   currentPlan = normalized;
   renderPlan(currentPlan);
+  showHint('');
 }
 
 // ---------- Render ----------
@@ -182,10 +226,12 @@ function renderPlan(plan){
   $('#title') && ($('#title').textContent = m.title);
   $('#macros') && ($('#macros').textContent = `Ккал: ${m.kcal} | Б:${m.protein_g} Ж:${m.fat_g} В:${m.carbs_g}`);
 
-  const tabs = $('#tabs'); if (tabs){ tabs.innerHTML = '';
+  const tabs = $('#tabs'); if (tabs){
+    tabs.innerHTML = '';
     days.forEach((d,i)=>{
       const b = document.createElement('button');
       b.className = 'tab';
+      b.type = 'button';
       b.textContent = d?.day ? String(d.day) : normalizeDayLabel('', i+1);
       b.onclick = ()=>renderDay(d, i+1);
       tabs.appendChild(b);
@@ -206,7 +252,7 @@ function renderDay(dayObj, dayNumber){
       <h2 class="day-title">${dayObj?.day || normalizeDayLabel('', dayNumber)}</h2>
       <div class="day-macros">Ккал: ${dm.kcal} • Б:${dm.protein_g} • Ж:${dm.fat_g} • В:${dm.carbs_g}</div>
     </div>
-    <div class="day-actions"><button id="swapDay" class="btn ghost">🔁 Замінити день</button></div>
+    <div class="day-actions"><button id="swapDay" class="btn ghost" type="button">🔁 Замінити день</button></div>
   `;
   wrap.appendChild(head);
 
@@ -219,16 +265,16 @@ function renderDay(dayObj, dayNumber){
     card.className = 'meal card';
     card.innerHTML = `
       <div class="meal-head">
-        <h3 class="meal-title">${title}</h3>
+        <h3 class="meal-title">${escapeHtml(title)}</h3>
         ${hasMacros ? `<div class="meal-macros">Ккал: ${kcal} • Б:${p} • Ж:${f} • В:${c}</div>` : ''}
       </div>
-      ${m?.description ? `<p class="meal-desc">${m.description}</p>` : ''}
+      ${m?.description ? `<p class="meal-desc">${escapeHtml(m.description)}</p>` : ''}
 
       ${Array.isArray(m?.ingredients) && m.ingredients.length ? `
         <details class="ing">
           <summary>Інгредієнти</summary>
           <ul class="ing-list">
-            ${m.ingredients.map(i=>`<li><span>${i.name}</span><span>${i.qty||''}</span></li>`).join('')}
+            ${m.ingredients.map(i=>`<li><span>${escapeHtml(i.name)}</span><span>${escapeHtml(i.qty||'')}</span></li>`).join('')}
           </ul>
         </details>
       ` : ''}
@@ -236,50 +282,95 @@ function renderDay(dayObj, dayNumber){
       ${m?.instructions ? `
         <details class="instr">
           <summary>Спосіб приготування</summary>
-          <div class="instr-text">${m.instructions}</div>
+          <div class="instr-text">${escapeHtml(m.instructions)}</div>
         </details>
       ` : ''}
 
       ${Array.isArray(m?.swap_suggestions) && m.swap_suggestions.length
         ? `<details class="swap-list"><summary>Можливі заміни</summary>
-             <ul>${m.swap_suggestions.map(s=>`<li>${s}</li>`).join('')}</ul>
+             <ul>${m.swap_suggestions.map(s=>`<li>${escapeHtml(s)}</li>`).join('')}</ul>
            </details>` : ''
       }
-      <div class="meal-actions"><button class="btn" data-meal="${m?.meal_type || ''}">🔄 Замінити страву</button></div>
+
+      <div class="meal-actions">
+        <button class="btn" type="button" data-meal="${escapeAttr(m?.meal_type || '')}">
+          🔄 Замінити страву
+        </button>
+      </div>
     `;
-    card.querySelector('.btn[data-meal]')?.addEventListener('click', async ()=>{
+
+    card.querySelector('button[data-meal]')?.addEventListener('click', async ()=>{
       await doSwapMeal(dayNumber, m?.meal_type || '');
     });
+
     wrap.appendChild(card);
   });
 
   $('#swapDay')?.addEventListener('click', async ()=>{ await doSwapDay(dayNumber); });
 }
 
-// ---------- Actions ----------
+// ---------- Actions (by user_id) ----------
 async function doSwapMeal(day, mealType){
+  const userId = getTelegramUserId();
   try{
     tg?.MainButton?.showProgress?.();
-    const res = await callAPI({ act:'swapMeal', plan_id:planId, token, day, meal_type:mealType });
-    if (res?.ok && res?.plan_updated) { currentPlan = normalizePlan(res.plan_updated); renderPlan(currentPlan); }
-    else throw new Error(res?.error || 'swapMeal failed');
-  } finally { tg?.MainButton?.hide?.(); }
+    showHint('Заміна страви…');
+    const initData = tg?.initData || '';
+    const res = await callAPI({
+      act: ACT.swapMealByUser,
+      user_id: userId,
+      initData,
+      day,
+      meal_type: mealType
+    });
+    if (res?.ok && res?.plan_updated) {
+      currentPlan = normalizePlan(res.plan_updated);
+      renderPlan(currentPlan);
+      showHint('');
+    } else throw new Error(res?.error || 'swapMeal failed');
+  } catch(e){
+    showHint(e?.message || 'Помилка заміни страви', 'error');
+  } finally {
+    tg?.MainButton?.hide?.();
+  }
 }
+
 async function doSwapDay(day){
+  const userId = getTelegramUserId();
   try{
     tg?.MainButton?.showProgress?.();
-    const res = await callAPI({ act:'swapDay', plan_id:planId, token, day });
-    if (res?.ok && res?.plan_updated) { currentPlan = normalizePlan(res.plan_updated); renderPlan(currentPlan); }
-    else throw new Error(res?.error || 'swapDay failed');
-  } finally { tg?.MainButton?.hide?.(); }
+    showHint('Заміна дня…');
+    const initData = tg?.initData || '';
+    const res = await callAPI({ act: ACT.swapDayByUser, user_id: userId, initData, day });
+    if (res?.ok && res?.plan_updated) {
+      currentPlan = normalizePlan(res.plan_updated);
+      renderPlan(currentPlan);
+      showHint('');
+    } else throw new Error(res?.error || 'swapDay failed');
+  } catch(e){
+    showHint(e?.message || 'Помилка заміни дня', 'error');
+  } finally {
+    tg?.MainButton?.hide?.();
+  }
 }
+
 $('#regenPlan')?.addEventListener('click', async ()=>{
+  const userId = getTelegramUserId();
   try{
     tg?.MainButton?.showProgress?.();
-    const res = await callAPI({ act:'swapPlan', plan_id:planId, token });
-    if (res?.ok && res?.plan_updated) { currentPlan = normalizePlan(res.plan_updated); renderPlan(currentPlan); }
-    else throw new Error(res?.error || 'swapPlan failed');
-  } finally { tg?.MainButton?.hide?.(); }
+    showHint('Перегенерація плану…');
+    const initData = tg?.initData || '';
+    const res = await callAPI({ act: ACT.swapPlanByUser, user_id: userId, initData });
+    if (res?.ok && res?.plan_updated) {
+      currentPlan = normalizePlan(res.plan_updated);
+      renderPlan(currentPlan);
+      showHint('');
+    } else throw new Error(res?.error || 'swapPlan failed');
+  } catch(e){
+    showHint(e?.message || 'Помилка перегенерації плану', 'error');
+  } finally {
+    tg?.MainButton?.hide?.();
+  }
 });
 
 // ---------- Shopping List Modal ----------
@@ -291,7 +382,7 @@ function renderShoppingList(){
   const list = currentPlan?.shopping_list;
 
   if (!list || (Array.isArray(list) && !list.length) || (typeof list === 'object' && !Array.isArray(list) && !Object.keys(list).length)) {
-    body.innerHTML = '<p>Список покупок відсутній.</p>';
+    body.innerHTML = '<p class="muted">Список покупок відсутній.</p>';
     return;
   }
 
@@ -307,15 +398,17 @@ function renderShoppingList(){
           const qty  = i?.qty ?? i?.quantity ?? '';
           const unit = i?.unit ? ` ${i.unit}` : '';
           const tail = qty ? `: ${qty}${unit}` : '';
-          return `<li>${name}${tail}</li>`;
+          return `<li>${escapeHtml(name)}${escapeHtml(tail)}</li>`;
         }).join('');
       } else {
         itemsHtml = Object.entries(items).map(([name, v])=>{
-          const val = (typeof v === 'object') ? (v?.quantity ?? v?.qty ?? '') + (v?.unit ? ` ${v.unit}` : '') : v;
-          return `<li>${name}: ${val ?? ''}</li>`;
+          const val = (typeof v === 'object')
+            ? ((v?.quantity ?? v?.qty ?? '') + (v?.unit ? ` ${v.unit}` : ''))
+            : v;
+          return `<li>${escapeHtml(name)}: ${escapeHtml(val ?? '')}</li>`;
         }).join('');
       }
-      card.innerHTML = `<h4>${category}</h4><ul>${itemsHtml}</ul>`;
+      card.innerHTML = `<h4>${escapeHtml(category)}</h4><ul>${itemsHtml}</ul>`;
       body.appendChild(card);
     });
   } else {
@@ -323,36 +416,54 @@ function renderShoppingList(){
     const ul = document.createElement('ul');
     ul.className = 'shop-list';
     ul.innerHTML = list.map(i=>{
-      if (typeof i === 'string') return `<li>${i}</li>`;
+      if (typeof i === 'string') return `<li>${escapeHtml(i)}</li>`;
       const name = i?.name ?? i?.item ?? '—';
       const qty  = i?.quantity ?? i?.qty ?? '';
       const unit = i?.unit ? ` ${i.unit}` : '';
       const tail = qty ? `: ${qty}${unit}` : '';
-      return `<li><span>${name}</span><span>${tail}</span></li>`;
+      return `<li><span>${escapeHtml(name)}</span><span>${escapeHtml(tail)}</span></li>`;
     }).join('');
     body.appendChild(ul);
   }
 }
 
-// open/close + UX
-$('#openShopping')?.addEventListener('click', ()=>{
+function openModal(){
   renderShoppingList();
-  const m = $('#shoppingModal'); m?.classList.add('open');
-});
-$('#closeShopping')?.addEventListener('click', ()=>{
-  $('#shoppingModal')?.classList.remove('open');
-});
-document.addEventListener('keydown', (e)=>{
-  if (e.key === 'Escape') $('#shoppingModal')?.classList.remove('open');
-});
+  const m = $('#shoppingModal');
+  m?.classList.add('open');
+  m?.setAttribute('aria-hidden','false');
+}
+function closeModal(){
+  const m = $('#shoppingModal');
+  m?.classList.remove('open');
+  m?.setAttribute('aria-hidden','true');
+}
+
+$('#openShopping')?.addEventListener('click', openModal);
+$('#closeShopping')?.addEventListener('click', closeModal);
+document.addEventListener('keydown', (e)=>{ if (e.key === 'Escape') closeModal(); });
 $('#shoppingModal')?.addEventListener('click', (e)=>{
-  if (e.target?.classList?.contains('modal')) $('#shoppingModal')?.classList.remove('open');
+  if (e.target?.classList?.contains('modal')) closeModal();
 });
+
+// ---------- Escaping helpers (avoid HTML injection) ----------
+function escapeHtml(s){
+  return String(s ?? '')
+    .replaceAll('&','&amp;')
+    .replaceAll('<','&lt;')
+    .replaceAll('>','&gt;')
+    .replaceAll('"','&quot;')
+    .replaceAll("'","&#39;");
+}
+function escapeAttr(s){
+  // minimal for attribute usage
+  return escapeHtml(s).replaceAll('`','&#96;');
+}
 
 // ---------- Start ----------
 loadPlan().catch(err=>{
   $('#title') && ($('#title').textContent = 'Помилка');
   $('#macros') && ($('#macros').textContent = err?.message || 'Щось пішло не так');
+  showHint(err?.message || 'Щось пішло не так', 'error');
   console.error('Plan load error:', err);
 });
-
