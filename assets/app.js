@@ -13,7 +13,7 @@ let currentPlan = null;
 const SHEET_CSV_URL = '1dWR-VpkGtmorDU1qAAIwbwk7SZxrozY15uN-KcyKwug'; // <-- SET THIS
 
 // Header names in that CSV:
-const COL_TG_ID_NAME = 'tg_id';       // or 'user_id'
+const COL_TG_ID_NAME = 'client_telegram_id';       // or 'user_id'
 const COL_PLAN_NAME  = 'plan_json';   // JSON string
 // ==================================================
 
