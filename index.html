@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>NutriArt AI — План харчування</title>
+  <link rel="stylesheet" href="assets/styles.css?v=1772142955" />
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+  <div class="app">
+    <header class="top">
+      <div class="top-left">
+        <h1 id="title">План харчування</h1>
+        <div id="macros" class="sub">—</div>
+        <div id="hint" class="hint"></div>
+        <div id="debug" class="debug"></div>
+      </div>
+      <div class="top-actions">
+        <button id="openShopping" class="btn ghost">🛒 Список покупок</button>
+      </div>
+    </header>
+
+    <nav id="tabs" class="tabs" aria-label="Дні"></nav>
+    <main id="content" class="content"></main>
+  </div>
+
+  <div id="uidGate" class="modal" aria-hidden="true">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3>Не вдалось відкрити план</h3>
+      </div>
+      <div class="modal-body">
+        <p class="muted">
+          Відкрий сторінку через кнопку в Telegram-боті. Якщо відкрив з браузера — додай параметр <code>?uid=</code>.
+        </p>
+        <div class="form-row">
+          <label for="uidInput">Telegram ID</label>
+          <input id="uidInput" inputmode="numeric" placeholder="Напр. 123456789" />
+        </div>
+        <div class="form-actions">
+          <button id="uidContinue" class="btn">Відкрити план</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="shoppingModal" class="modal" aria-hidden="true">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3>Список покупок</h3>
+        <button id="closeShopping" class="btn ghost">✕</button>
+      </div>
+      <div class="modal-body"></div>
+    </div>
+  </div>
+
+  <script src="assets/app.js?v=1772142955"></script>
+</body>
+</html>
