@@ -20,7 +20,7 @@ function buildCsvUrl(){
   const url = (SHEET_CSV_URL || '').trim();
   if (url) return url;
   const id = (SHEET_ID || '').trim();
-  if (!id || id === 'PASTE_SHEET_ID_HERE') return '';
+  if (!id || id === '1dWR-VpkGtmorDU1qAAIwbwk7SZxrozY15uN-KcyKwug') return '';
   const sheet = encodeURIComponent((SHEET_NAME || 'plans').trim() || 'plans');
   return `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&sheet=${sheet}`;
 }
