@@ -1,21 +1,42 @@
 :root{
-  --bg:#0E1512;
-  --text:#E6F4EA;
-  --muted:#9FB6A6;
-  --line:#1F2D25;
-  --btn:#22C55E;
-  --btn2:#16221C;
+  /* Theme tokens (will be overridden by body[data-theme]) */
+  --bg:#0B1220;
+  --text:#F1F5F9;
+  --muted:#94A3B8;
+  --line:#1E293B;
+
+  --card: rgba(17, 28, 46, .78);
+  --card2: rgba(11, 18, 32, .60);
+  --headerA: rgba(17, 28, 46, .92);
+  --headerB: rgba(11, 18, 32, .65);
+
   --shadow: 0 10px 30px rgba(0,0,0,.35);
   --r:18px;
+
+  --accent:#22C55E;          /* main accent */
+  --accentText:#0E1512;      /* readable text on accent */
+  --accentSoft: rgba(34,197,94,.18);
+
+  --btnBg: rgba(22,34,28,.75);
+  --btnText: var(--text);
+  --tabBg: rgba(18,32,24,.55);
+  --tabText: var(--text);
 }
+
 *{ box-sizing:border-box; }
-body{ margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; background:var(--bg); color:var(--text); }
+body{
+  margin:0;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+  background:var(--bg);
+  color:var(--text);
+}
 .app{ max-width:980px; margin:0 auto; padding:14px; }
 
+/* Header */
 .top{
   display:flex; justify-content:space-between; gap:12px; align-items:flex-start;
   padding:14px;
-  background: linear-gradient(180deg, rgba(18,32,24,.92), rgba(18,32,24,.65));
+  background: linear-gradient(180deg, var(--headerA), var(--headerB));
   border:1px solid var(--line);
   border-radius: var(--r);
   box-shadow: var(--shadow);
@@ -28,11 +49,23 @@ h1{ margin:0; font-size:22px; letter-spacing:.2px; }
 .debug{ display:none; }
 
 .top-actions{ display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
-.btn{ border:0; background: var(--btn); color:#0E1512; padding:10px 12px; border-radius:14px; cursor:pointer; font-weight:800; }
-.btn.ghost{ background: rgba(22,34,28,.75); color: var(--text); border:1px solid var(--line); }
+.btn{
+  border:0;
+  background: var(--accent);
+  color: var(--accentText);
+  padding:10px 12px;
+  border-radius:14px;
+  cursor:pointer;
+  font-weight:800;
+}
+.btn.ghost{
+  background: var(--btnBg);
+  color: var(--btnText);
+  border:1px solid var(--line);
+}
 .btn:active{ transform: translateY(1px); }
 
-/* FIX #1: single row tabs + horizontal scroll */
+/* Tabs — single row + horizontal scroll */
 .tabs{
   margin-top:12px;
   display:flex;
@@ -46,155 +79,194 @@ h1{ margin:0; font-size:22px; letter-spacing:.2px; }
 .tab{
   flex:0 0 auto;
   border:1px solid var(--line);
-  background: rgba(18,32,24,.55);
-  color: var(--text);
+  background: var(--tabBg);
+  color: var(--tabText);
   padding:8px 10px;
   border-radius:999px;
   cursor:pointer;
   font-size:13px;
 }
 .tab.active{
-  background: var(--btn);
-  color:#0E1512;
-  border-color: rgba(34,197,94,.65);
+  background: var(--accent);
+  color: var(--accentText);
+  border-color: color-mix(in oklab, var(--accent) 60%, var(--line));
+  box-shadow: 0 8px 22px color-mix(in oklab, var(--accent) 30%, transparent);
 }
 
+/* Content */
 .content{ margin-top:12px; display:flex; flex-direction:column; gap:12px; }
-.card{ background: rgba(18,32,24,.62); border:1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); padding:14px; }
+.card{
+  background: var(--card);
+  border:1px solid var(--line);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+  padding:14px;
+}
 
 .day-head{ display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
 .day-title{ margin:0; font-size:18px; }
 .day-macros{ margin-top:6px; color: var(--muted); font-size:13px; }
 
-/* FIX #2: meal title + macros stacked */
+/* Meals — title + macros stacked */
 .meal-head{ display:flex; flex-direction:column; gap:6px; }
 .meal-title{ margin:0; font-size:16px; line-height:1.25; }
 .meal-macros{ color: var(--muted); font-size:12px; }
 .meal-desc{ margin:10px 0 0; color: var(--text); opacity:.92; }
 
-details{ margin-top:10px; border:1px solid var(--line); border-radius:14px; padding:10px 12px; background: rgba(14,21,18,.55); }
+details{
+  margin-top:10px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  padding:10px 12px;
+  background: var(--card2);
+}
 summary{ cursor:pointer; font-weight:800; }
-.ing-list{ margin:10px 0 0; padding:0; list-style:none; display:flex; flex-direction:column; gap:8px; }
+.ing-list{
+  margin:10px 0 0; padding:0; list-style:none;
+  display:flex; flex-direction:column; gap:8px;
+}
 .ing-list li{ display:flex; justify-content:space-between; gap:12px; opacity:.95; }
 .instr-text{ margin-top:10px; opacity:.95; white-space: pre-wrap; }
 
-.modal{ position:fixed; inset:0; display:none; align-items:center; justify-content:center; padding:14px; background: rgba(0,0,0,.55); z-index:50; }
+/* Modal */
+.modal{
+  position:fixed; inset:0;
+  display:none; align-items:center; justify-content:center;
+  padding:14px; background: rgba(0,0,0,.55);
+  z-index:50;
+}
 .modal.open{ display:flex; }
-.modal-card{ width:min(720px, 100%); background: rgba(18,32,24,.94); border:1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); overflow:hidden; }
-.modal-head{ display:flex; justify-content:space-between; align-items:center; padding:12px 14px; border-bottom:1px solid var(--line); }
+.modal-card{
+  width:min(720px, 100%);
+  background: color-mix(in oklab, var(--bg) 35%, black);
+  border:1px solid var(--line);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+  overflow:hidden;
+}
+.modal-head{
+  display:flex; justify-content:space-between; align-items:center;
+  padding:12px 14px; border-bottom:1px solid var(--line);
+}
 .modal-head h3{ margin:0; }
 .modal-body{ padding:14px; }
 
 .muted{ color: var(--muted); }
 .form-row{ margin-top:10px; display:flex; flex-direction:column; gap:6px; }
 label{ font-size:12px; color: var(--muted); }
-input{ padding:10px 12px; border-radius:14px; border:1px solid var(--line); outline:none; background: rgba(14,21,18,.65); color: var(--text); }
+input{
+  padding:10px 12px; border-radius:14px;
+  border:1px solid var(--line);
+  outline:none;
+  background: color-mix(in oklab, var(--bg) 70%, black);
+  color: var(--text);
+}
 .form-actions{ margin-top:12px; display:flex; justify-content:flex-end; }
 
-.shop-list{ list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:10px; }
-.shop-list li{ display:flex; justify-content:space-between; gap:12px; padding:10px 12px; border:1px solid var(--line); border-radius:14px; background: rgba(14,21,18,.55); }
+.shop-list{
+  list-style:none; padding:0; margin:0;
+  display:flex; flex-direction:column; gap:10px;
+}
+.shop-list li{
+  display:flex; justify-content:space-between; gap:12px;
+  padding:10px 12px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background: var(--card2);
+}
 code{ background: rgba(255,255,255,.08); padding:2px 6px; border-radius:8px; }
+
 /* ===========================
-   THEME SWITCHER (9 themes)
+   THEME PACK (recommended)
+   dark-first: same layout, tuned tokens
    Switch via: <body data-theme="...">
    =========================== */
 
-/* Default fallback (if no data-theme) */
-:root{
+/* DARK: Green (default / NutriArt) */
+body[data-theme="dark-green"]{
   --bg:#0E1512;
   --text:#E6F4EA;
   --muted:#9FB6A6;
   --line:#1F2D25;
-  --btn:#22C55E;
-  --btn2:#16221C;
+
+  --card: rgba(18,32,24,.62);
+  --card2: rgba(14,21,18,.55);
+  --headerA: rgba(18,32,24,.92);
+  --headerB: rgba(18,32,24,.65);
+
+  --accent:#22C55E;
+  --accentText:#0E1512;
+  --accentSoft: rgba(34,197,94,.18);
+
+  --btnBg: rgba(22,34,28,.75);
+  --btnText: var(--text);
+  --tabBg: rgba(18,32,24,.55);
+  --tabText: var(--text);
 }
 
-/* 1) Minimal Green (current) */
-body[data-theme="green-minimal"]{
-  --bg:#0E1512;
-  --text:#E6F4EA;
-  --muted:#9FB6A6;
-  --line:#1F2D25;
-  --btn:#22C55E;
-  --btn2:#16221C;
-}
-
-/* 2) Pastel Green (Light) */
-body[data-theme="green-pastel"]{
-  --bg:#F2F7F3;
-  --text:#0F1B13;
-  --muted:#4D6A5A;
-  --line:#D9E6DE;
-  --btn:#6BBF7A;
-  --btn2:#E6F1EA;
-}
-
-/* 3) Sunny Yellow (Light) */
-body[data-theme="yellow-sunny"]{
-  --bg:#FFF7E6;
-  --text:#1E1A12;
-  --muted:#6B5A3A;
-  --line:#F2E2BF;
-  --btn:#F5C542;
-  --btn2:#FFF1CC;
-}
-
-/* 4) Sky Blue (Light) */
-body[data-theme="blue-sky"]{
-  --bg:#EAF4FF;
-  --text:#0E1A2A;
-  --muted:#44627A;
-  --line:#CFE4F7;
-  --btn:#2EA8FF;
-  --btn2:#DCEEFF;
-}
-
-/* 5) Blue Ice (Dark, cold) */
-body[data-theme="blue-ice"]{
-  --bg:#07131C;
-  --text:#EAF6FF;
-  --muted:#8FB1C6;
-  --line:#133042;
-  --btn:#4CC3FF;
-  --btn2:#0F2330;
-}
-
-/* 6) Cyan Steel (Dark, tech) */
-body[data-theme="cyan-steel"]{
+/* DARK: Cyan-Tech (cool AI vibe) */
+body[data-theme="dark-cyan"]{
   --bg:#071014;
   --text:#E6F6F6;
   --muted:#86AEB0;
   --line:#17333A;
-  --btn:#19D3C5;
-  --btn2:#0F2126;
+
+  --card: rgba(15,33,38,.72);
+  --card2: rgba(7,16,20,.55);
+  --headerA: rgba(15,33,38,.92);
+  --headerB: rgba(7,16,20,.65);
+
+  --accent:#19D3C5;
+  --accentText:#071014;
+  --accentSoft: rgba(25,211,197,.16);
+
+  --btnBg: rgba(15,33,38,.70);
+  --btnText: var(--text);
+  --tabBg: rgba(15,33,38,.55);
+  --tabText: var(--text);
 }
 
-/* 7) Clean Blue (Classic, trust) */
-body[data-theme="blue-clean"]{
+/* DARK: Clean Blue (trust / corporate) */
+body[data-theme="dark-blue"]{
   --bg:#0B1220;
   --text:#F1F5F9;
   --muted:#94A3B8;
   --line:#1E293B;
-  --btn:#3B82F6;
-  --btn2:#111C2E;
+
+  --card: rgba(17,28,46,.78);
+  --card2: rgba(11,18,32,.60);
+  --headerA: rgba(17,28,46,.92);
+  --headerB: rgba(11,18,32,.65);
+
+  --accent:#3B82F6;
+  --accentText:#0B1220;
+  --accentSoft: rgba(59,130,246,.16);
+
+  --btnBg: rgba(17,28,46,.70);
+  --btnText: var(--text);
+  --tabBg: rgba(17,28,46,.55);
+  --tabText: var(--text);
 }
 
-/* 8) Purple Premium (Dark, luxury) */
-body[data-theme="purple-premium"]{
-  --bg:#0D0A1A;
-  --text:#F3F0FF;
-  --muted:#B8B3D9;
-  --line:#2B2446;
-  --btn:#8B5CF6;
-  --btn2:#1A1433;
-}
+/* LIGHT: Pastel (proper light base, optional) */
+body[data-theme="light-pastel"]{
+  --bg:#F2F7F3;
+  --text:#0F1B13;
+  --muted:#4D6A5A;
+  --line:#D9E6DE;
 
-/* 9) Orange Rust (Dark, warm) */
-body[data-theme="orange-rust"]{
-  --bg:#1A0F0A;
-  --text:#FFF1E8;
-  --muted:#D0A58F;
-  --line:#3A2418;
-  --btn:#F97316;
-  --btn2:#23140D;
+  --card: #ffffff;
+  --card2:#F5FAF7;
+  --headerA: rgba(255,255,255,.92);
+  --headerB: rgba(245,250,247,.78);
+
+  --shadow: 0 10px 24px rgba(15, 27, 19, .10);
+
+  --accent:#22C55E; /* keep NutriArt accent */
+  --accentText:#0F1B13;
+
+  --btnBg:#F5FAF7;
+  --btnText: var(--text);
+  --tabBg:#FFFFFF;
+  --tabText: var(--text);
 }
