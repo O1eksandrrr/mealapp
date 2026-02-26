@@ -10,7 +10,7 @@ let currentPlan = null;
 // Put your published-to-web CSV URL (tab with plans).
 // Example (GVIZ CSV):
 // https://docs.google.com/spreadsheets/d/<SHEET_ID>/gviz/tq?tqx=out:csv&sheet=plans
-const SHEET_CSV_URL = ''; // <-- SET THIS
+const SHEET_CSV_URL = '1dWR-VpkGtmorDU1qAAIwbwk7SZxrozY15uN-KcyKwug'; // <-- SET THIS
 
 // Header names in that CSV:
 const COL_TG_ID_NAME = 'tg_id';       // or 'user_id'
