@@ -7,7 +7,7 @@ const UA_DAYS = ['Понеділок','Вівторок','Середа','Чет�
 let currentPlan = null;
 
 // ===================== CONFIG =====================
-const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/1dWR-VpkGtmorDU1qAAIwbwk7SZxrozY15uN-KcyKwug/edit?gid=1931947013#gid=1931947013';
+const SHEET_CSV_URL = '';
 const SHEET_ID = '1dWR-VpkGtmorDU1qAAIwbwk7SZxrozY15uN-KcyKwug';
 const SHEET_NAME = 'plans';
 
@@ -20,7 +20,7 @@ function buildCsvUrl(){
   const url = (SHEET_CSV_URL || '').trim();
   if (url) return url;
   const id = (SHEET_ID || '').trim();
-  if (!id || id === '1dWR-VpkGtmorDU1qAAIwbwk7SZxrozY15uN-KcyKwug') return '';
+  if (!id || id === 'PASTE_SHEET_ID_HERE') return '';
   const sheet = encodeURIComponent((SHEET_NAME || 'plans').trim() || 'plans');
   return `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&sheet=${sheet}`;
 }
