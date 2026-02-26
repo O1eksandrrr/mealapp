@@ -94,3 +94,107 @@ input{ padding:10px 12px; border-radius:14px; border:1px solid var(--line); outl
 .shop-list{ list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:10px; }
 .shop-list li{ display:flex; justify-content:space-between; gap:12px; padding:10px 12px; border:1px solid var(--line); border-radius:14px; background: rgba(14,21,18,.55); }
 code{ background: rgba(255,255,255,.08); padding:2px 6px; border-radius:8px; }
+/* ===========================
+   THEME SWITCHER (9 themes)
+   Switch via: <body data-theme="...">
+   =========================== */
+
+/* Default fallback (if no data-theme) */
+:root{
+  --bg:#0E1512;
+  --text:#E6F4EA;
+  --muted:#9FB6A6;
+  --line:#1F2D25;
+  --btn:#22C55E;
+  --btn2:#16221C;
+}
+
+/* 1) Minimal Green (current) */
+body[data-theme="green-minimal"]{
+  --bg:#0E1512;
+  --text:#E6F4EA;
+  --muted:#9FB6A6;
+  --line:#1F2D25;
+  --btn:#22C55E;
+  --btn2:#16221C;
+}
+
+/* 2) Pastel Green (Light) */
+body[data-theme="green-pastel"]{
+  --bg:#F2F7F3;
+  --text:#0F1B13;
+  --muted:#4D6A5A;
+  --line:#D9E6DE;
+  --btn:#6BBF7A;
+  --btn2:#E6F1EA;
+}
+
+/* 3) Sunny Yellow (Light) */
+body[data-theme="yellow-sunny"]{
+  --bg:#FFF7E6;
+  --text:#1E1A12;
+  --muted:#6B5A3A;
+  --line:#F2E2BF;
+  --btn:#F5C542;
+  --btn2:#FFF1CC;
+}
+
+/* 4) Sky Blue (Light) */
+body[data-theme="blue-sky"]{
+  --bg:#EAF4FF;
+  --text:#0E1A2A;
+  --muted:#44627A;
+  --line:#CFE4F7;
+  --btn:#2EA8FF;
+  --btn2:#DCEEFF;
+}
+
+/* 5) Blue Ice (Dark, cold) */
+body[data-theme="blue-ice"]{
+  --bg:#07131C;
+  --text:#EAF6FF;
+  --muted:#8FB1C6;
+  --line:#133042;
+  --btn:#4CC3FF;
+  --btn2:#0F2330;
+}
+
+/* 6) Cyan Steel (Dark, tech) */
+body[data-theme="cyan-steel"]{
+  --bg:#071014;
+  --text:#E6F6F6;
+  --muted:#86AEB0;
+  --line:#17333A;
+  --btn:#19D3C5;
+  --btn2:#0F2126;
+}
+
+/* 7) Clean Blue (Classic, trust) */
+body[data-theme="blue-clean"]{
+  --bg:#0B1220;
+  --text:#F1F5F9;
+  --muted:#94A3B8;
+  --line:#1E293B;
+  --btn:#3B82F6;
+  --btn2:#111C2E;
+}
+
+/* 8) Purple Premium (Dark, luxury) */
+body[data-theme="purple-premium"]{
+  --bg:#0D0A1A;
+  --text:#F3F0FF;
+  --muted:#B8B3D9;
+  --line:#2B2446;
+  --btn:#8B5CF6;
+  --btn2:#1A1433;
+}
+
+/* 9) Orange Rust (Dark, warm) */
+body[data-theme="orange-rust"]{
+  --bg:#1A0F0A;
+  --text:#FFF1E8;
+  --muted:#D0A58F;
+  --line:#3A2418;
+  --btn:#F97316;
+  --btn2:#23140D;
+}
