@@ -20,7 +20,7 @@ const SHEET_ID = '1dWR-VpkGtmorDU1qAAIwbwk7SZxrozY15uN-KcyKwug'; // e.g. 1dWR-Vp
 const SHEET_NAME = 'plans';             // exact tab name
 
 // Header names in CSV:
-const COL_TG_ID_NAME = 'tg_id';       // or 'user_id'
+const COL_TG_ID_NAME = 'client_telegram_id';       // or 'user_id'
 const COL_PLAN_NAME  = 'plan_json';   // JSON string
 // ==================================================
 
