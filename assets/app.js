@@ -9,7 +9,7 @@ let currentPlan = null;
 // ===================== CONFIG =====================
 // Option A: Published CSV URL (GVIZ):
 //   https://docs.google.com/spreadsheets/d/<SHEET_ID>/gviz/tq?tqx=out:csv&sheet=plans
-const SHEET_CSV_URL = '';
+const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/1dWR-VpkGtmorDU1qAAIwbwk7SZxrozY15uN-KcyKwug/gviz/tq?tqx=out:csv&sheet=plans';
 
 // Option B: Sheet ID + exact tab name (we build URL automatically)
 const SHEET_ID = '1dWR-VpkGtmorDU1qAAIwbwk7SZxrozY15uN-KcyKwug';
