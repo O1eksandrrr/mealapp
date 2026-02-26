@@ -1,3 +1,7 @@
+// NutriArt Meal Plan WebApp (GitHub Pages)
+// Fix: user was putting only SHEET_ID, which caused HTTP 404. This version accepts SHEET_ID+SHEET_NAME and builds a real CSV URL.
+// Also auto-loads by Telegram WebApp uid / ?uid=... and only shows manual input if uid is unavailable.
+
 const tg = window.Telegram?.WebApp;
 if (tg) { try { tg.expand(); tg.ready(); } catch {} }
 
@@ -7,15 +11,28 @@ const UA_DAYS = ['Понеділок','Вівторок','Середа','Чет�
 let currentPlan = null;
 
 // ===================== CONFIG =====================
-// Put your published-to-web CSV URL (tab with plans).
-// Example (GVIZ CSV):
-// https://docs.google.com/spreadsheets/d/<SHEET_ID>/gviz/tq?tqx=out:csv&sheet=plans
-const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/1dWR-VpkGtmorDU1qAAIwbwk7SZxrozY15uN-KcyKwug/edit?gid=1931947013#gid=1931947013'; // <-- SET THIS
+// Option A: Published CSV URL (GVIZ):
+//   https://docs.google.com/spreadsheets/d/<SHEET_ID>/gviz/tq?tqx=out:csv&sheet=plans
+const SHEET_CSV_URL = ''; // <-- if you set this, leave SHEET_ID/SHEET_NAME empty
 
-// Header names in that CSV:
-const COL_TG_ID_NAME = 'client_telegram_id';       // or 'user_id'
+// Option B: Just paste your sheet id + exact tab name (we build URL automatically)
+const SHEET_ID = '1dWR-VpkGtmorDU1qAAIwbwk7SZxrozY15uN-KcyKwug'; // e.g. 1dWR-VpkQtmorDU1qAAIwbwk7SZxrozY15uN-KcyKwug
+const SHEET_NAME = 'plans';             // exact tab name
+
+// Header names in CSV:
+const COL_TG_ID_NAME = 'tg_id';       // or 'user_id'
 const COL_PLAN_NAME  = 'plan_json';   // JSON string
 // ==================================================
+
+function buildCsvUrl(){
+  const url = (SHEET_CSV_URL || '').trim();
+  if (url) return url;
+
+  const id = (SHEET_ID || '').trim();
+  if (!id || id === 'PASTE_SHEET_ID_HERE') return '';
+  const sheet = encodeURIComponent((SHEET_NAME || 'plans').trim() || 'plans');
+  return `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&sheet=${sheet}`;
+}
 
 function setHint(msg, kind){
   const el = $('#hint');
@@ -37,7 +54,6 @@ function escapeHTML(s){
     ch === '"' ? '&quot;': '&#39;'
   ));
 }
-
 function normalizeDayLabel(v, idx){
   if (!v) return UA_DAYS[(idx-1+7)%7] || `День ${idx}`;
   const t = String(v).trim();
@@ -79,67 +95,9 @@ function normalizePlan(raw){
   if (typeof raw === 'string') { try { raw = JSON.parse(raw); } catch {} }
   if (raw && typeof raw.text === 'string') { try { raw = JSON.parse(raw.text); } catch {} }
   if (raw?.days && Array.isArray(raw.days)) return raw;
-
-  const pick = (...keys)=> (obj={})=>{
-    for (const k of keys){
-      const v = obj?.[k];
-      if (v !== undefined && v !== null && v !== '') return v;
-    }
-    return undefined;
-  };
-
-  const getDayLabel   = pick('day','day_of_week');
-  const getMealTitle  = pick('title','name','meal_name','dish_name','meal_type');
-  const getMealDesc   = pick('description');
-  const getMealInstr  = pick('instructions','preparation_instructions');
-  const getMealMacros = (m)=> m?.macros || m?.nutritional_info || {};
-  const getDayMacros  = (d)=> d?.daily_total || {kcal:0,protein_g:0,fat_g:0,carbs_g:0};
-
-  const srcDays = Array.isArray(raw?.meal_plan) ? raw.meal_plan
-               : Array.isArray(raw?.week_plan) ? raw.week_plan
-               : null;
-
-  if (Array.isArray(srcDays)) {
-    const days = srcDays.map((d,i)=>{
-      const sum = getDayMacros(d);
-      const meals = Array.isArray(d?.meals) ? d.meals.map(m=>{
-        const mm = getMealMacros(m);
-        const ingredients = Array.isArray(m?.ingredients) ? m.ingredients.map(it=>{
-          const name = it?.item ?? it?.name ?? '—';
-          const qty  = it?.quantity ?? it?.qty ?? '';
-          const unit = it?.unit ? ` ${it.unit}` : '';
-          return { name, qty: `${qty}${unit}`.trim() };
-        }) : [];
-        return {
-          title: getMealTitle(m) || '',
-          description: getMealDesc(m) || '',
-          instructions: getMealInstr(m) || '',
-          ingredients,
-          kcal:      Number(mm?.kcal)      || 0,
-          protein_g: Number(mm?.protein_g) || 0,
-          fat_g:     Number(mm?.fat_g)     || 0,
-          carbs_g:   Number(mm?.carbs_g)   || 0,
-        };
-      }) : [];
-
-      return {
-        day: normalizeDayLabel(getDayLabel(d), i+1),
-        meals,
-        kcal:      Number(sum?.kcal)      || 0,
-        protein_g: Number(sum?.protein_g) || 0,
-        fat_g:     Number(sum?.fat_g)     || 0,
-        carbs_g:   Number(sum?.carbs_g)   || 0,
-      };
-    });
-
-    const meta = computePlanMeta({ days });
-    return { meta, days, shopping_list: raw?.shopping_list ?? [] };
-  }
-
-  return { meta:{ title:'План харчування' }, days:[] };
+  return raw || { meta:{ title:'План харчування' }, days:[] };
 }
 
-// --- CSV parser ---
 function parseCSV(text){
   const rows = [];
   let row = [];
@@ -156,7 +114,6 @@ function parseCSV(text){
       cell += ch;
       continue;
     }
-
     if (ch === '"'){ inQuotes = true; continue; }
     if (ch === ','){ row.push(cell); cell=''; continue; }
     if (ch === '\n'){ row.push(cell); cell=''; rows.push(row); row=[]; continue; }
@@ -181,11 +138,13 @@ function normalizeId(x){
 }
 
 async function fetchPlanFromSheet(tgId){
-  if (!SHEET_CSV_URL) throw new Error('SHEET_CSV_URL не налаштований у assets/app.js');
-  const r = await fetch(SHEET_CSV_URL, { cache:'no-store' });
-  if (!r.ok) throw new Error(`Не вдалося завантажити таблицю (HTTP ${r.status})`);
-  const csv = await r.text();
+  const csvUrl = buildCsvUrl();
+  if (!csvUrl) throw new Error('Не налаштовано таблицю: вкажи SHEET_CSV_URL або SHEET_ID + SHEET_NAME в assets/app.js');
 
+  const r = await fetch(csvUrl, { cache:'no-store' });
+  if (!r.ok) throw new Error(`Не вдалося завантажити таблицю (HTTP ${r.status})`);
+
+  const csv = await r.text();
   const rows = parseCSV(csv);
   if (!rows.length) throw new Error('Порожній CSV');
 
@@ -211,7 +170,6 @@ async function fetchPlanFromSheet(tgId){
   throw new Error('План для цього Telegram ID не знайдено в таблиці');
 }
 
-// --- Render ---
 function renderPlan(plan){
   const days = Array.isArray(plan?.days) ? plan.days : [];
   const m = computePlanMeta(plan);
@@ -256,7 +214,7 @@ function renderDay(dayObj, dayNumber){
   (dayObj?.meals || []).forEach(m=>{
     const kcal = num(m?.kcal), p=num(m?.protein_g), f=num(m?.fat_g), c=num(m?.carbs_g);
     const hasMacros = kcal||p||f||c;
-    const title = m?.title || '';
+    const title = m?.title || m?.meal_type || '';
 
     const card = document.createElement('section');
     card.className = 'meal card';
@@ -266,28 +224,11 @@ function renderDay(dayObj, dayNumber){
         ${hasMacros ? `<div class="meal-macros">Ккал: ${kcal} • Б:${p} • Ж:${f} • В:${c}</div>` : ''}
       </div>
       ${m?.description ? `<p class="meal-desc">${escapeHTML(m.description)}</p>` : ''}
-
-      ${Array.isArray(m?.ingredients) && m.ingredients.length ? `
-        <details class="ing">
-          <summary>Інгредієнти</summary>
-          <ul class="ing-list">
-            ${m.ingredients.map(i=>`<li><span>${escapeHTML(i.name)}</span><span>${escapeHTML(i.qty||'')}</span></li>`).join('')}
-          </ul>
-        </details>
-      ` : ''}
-
-      ${m?.instructions ? `
-        <details class="instr">
-          <summary>Спосіб приготування</summary>
-          <div class="instr-text">${escapeHTML(m.instructions)}</div>
-        </details>
-      ` : ''}
     `;
     wrap.appendChild(card);
   });
 }
 
-// Shopping
 function renderShoppingList(){
   const modal = $('#shoppingModal'); if (!modal) return;
   const body = modal.querySelector('.modal-body'); if (!body) return;
@@ -295,34 +236,24 @@ function renderShoppingList(){
 
   const list = currentPlan?.shopping_list;
 
-  if (!list || (Array.isArray(list) && !list.length) || (typeof list === 'object' && !Array.isArray(list) && !Object.keys(list).length)) {
+  if (!list || (Array.isArray(list) && !list.length)) {
     body.innerHTML = '<p>Список покупок відсутній.</p>';
     return;
   }
 
   const ul = document.createElement('ul');
   ul.className = 'shop-list';
-
-  if (Array.isArray(list)){
-    ul.innerHTML = list.map(i=>{
-      if (typeof i === 'string') return `<li>${escapeHTML(i)}</li>`;
-      const name = i?.name ?? i?.item ?? '—';
-      const qty  = i?.quantity ?? i?.qty ?? '';
-      const unit = i?.unit ? ` ${i.unit}` : '';
-      const tail = qty ? `: ${qty}${unit}` : '';
-      return `<li><span>${escapeHTML(name)}</span><span>${escapeHTML(tail)}</span></li>`;
-    }).join('');
-  } else {
-    ul.innerHTML = Object.entries(list).map(([name, v])=>{
-      const val = (typeof v === 'object')
-        ? `${v?.quantity ?? v?.qty ?? ''}${v?.unit ? ` ${v.unit}` : ''}`
-        : String(v ?? '');
-      return `<li><span>${escapeHTML(name)}</span><span>${escapeHTML(val)}</span></li>`;
-    }).join('');
-  }
-
+  ul.innerHTML = list.map(i=>{
+    if (typeof i === 'string') return `<li>${escapeHTML(i)}</li>`;
+    const name = i?.name ?? i?.item ?? '—';
+    const qty  = i?.quantity ?? i?.qty ?? '';
+    const unit = i?.unit ? ` ${i.unit}` : '';
+    const tail = qty ? `: ${qty}${unit}` : '';
+    return `<li><span>${escapeHTML(name)}</span><span>${escapeHTML(tail)}</span></li>`;
+  }).join('');
   body.appendChild(ul);
 }
+
 $('#openShopping')?.addEventListener('click', ()=>{
   renderShoppingList();
   $('#shoppingModal')?.classList.add('open');
@@ -337,7 +268,6 @@ $('#shoppingModal')?.addEventListener('click', (e)=>{
   if (e.target?.classList?.contains('modal')) $('#shoppingModal')?.classList.remove('open');
 });
 
-// UID
 function getUidFromURL(){
   const qs = new URLSearchParams(location.search);
   const uid = qs.get('uid') || qs.get('user_id');
@@ -363,12 +293,10 @@ function isValidUid(x){ return /^\d{4,20}$/.test(String(x||'').trim()); }
 
 async function loadAndRender(uid){
   const id = normalizeId(uid);
+  const csvUrl = buildCsvUrl();
   setHint('Завантажую план…', '');
-  setDebug(`tg_id: ${id}\nsource: ${getUidFromTelegram() ? 'Telegram WebApp' : (getUidFromURL() ? 'URL' : 'manual')}\nCSV: ${SHEET_CSV_URL || '(not set)'}`);
+  setDebug(`tg_id: ${id}\nsource: ${getUidFromTelegram() ? 'Telegram WebApp' : (getUidFromURL() ? 'URL' : 'manual')}\nCSV: ${csvUrl || '(not set)'}`);
   const plan = await fetchPlanFromSheet(id);
-  if (!Array.isArray(plan?.days) || !plan.days.length){
-    throw new Error('План знайдено, але він порожній або має невірний формат');
-  }
   currentPlan = plan;
   renderPlan(plan);
   setHint('План відкрито ✅', 'ok');
@@ -376,7 +304,6 @@ async function loadAndRender(uid){
 
 (async function start(){
   const uid = getUidFromTelegram() || getUidFromURL();
-
   if (uid && isValidUid(uid)){
     try{
       closeGate();
@@ -388,7 +315,6 @@ async function loadAndRender(uid){
       return;
     }
   }
-
   openGate('');
   setHint('Введи Telegram ID, щоб завантажити план.', '');
 })();
