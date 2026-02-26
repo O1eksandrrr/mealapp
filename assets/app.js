@@ -7,8 +7,8 @@ const UA_DAYS = ['Понеділок','Вівторок','Середа','Чет�
 let currentPlan = null;
 
 // ===================== CONFIG =====================
-const SHEET_CSV_URL = '';
-const SHEET_ID = 'PASTE_SHEET_ID_HERE';
+const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/1dWR-VpkGtmorDU1qAAIwbwk7SZxrozY15uN-KcyKwug/edit?gid=1931947013#gid=1931947013';
+const SHEET_ID = '1dWR-VpkGtmorDU1qAAIwbwk7SZxrozY15uN-KcyKwug';
 const SHEET_NAME = 'plans';
 
 // put your real header names here:
