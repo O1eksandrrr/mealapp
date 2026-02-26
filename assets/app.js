@@ -12,7 +12,7 @@ let currentPlan = null;
 const SHEET_CSV_URL = '';
 
 // Option B: Sheet ID + exact tab name (we build URL automatically)
-const SHEET_ID = '1dWR-VpkQtmorDU1qAAIwbwk7SZxrozY15uN-KcyKwug';
+const SHEET_ID = '1dWR-VpkGtmorDU1qAAIwbwk7SZxrozY15uN-KcyKwug';
 const SHEET_NAME = 'plans';
 
 // Header names in your CSV:
