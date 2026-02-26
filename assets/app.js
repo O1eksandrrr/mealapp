@@ -10,7 +10,7 @@ let currentPlan = null;
 // Put your published-to-web CSV URL (tab with plans).
 // Example (GVIZ CSV):
 // https://docs.google.com/spreadsheets/d/<SHEET_ID>/gviz/tq?tqx=out:csv&sheet=plans
-const SHEET_CSV_URL = '1dWR-VpkGtmorDU1qAAIwbwk7SZxrozY15uN-KcyKwug'; // <-- SET THIS
+const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/1dWR-VpkGtmorDU1qAAIwbwk7SZxrozY15uN-KcyKwug/edit?gid=1931947013#gid=1931947013'; // <-- SET THIS
 
 // Header names in that CSV:
 const COL_TG_ID_NAME = 'client_telegram_id';       // or 'user_id'
