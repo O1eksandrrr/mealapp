@@ -7,8 +7,8 @@ const UA_DAYS = ['Понеділок','Вівторок','Середа','Чет�
 let currentPlan = null;
 
 // ===================== CONFIG =====================
-const SHEET_CSV_URL = 'PASTE_GVIZ_CSV_URL_HERE';
-const SHEET_ID = '';
+const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/1dWR-VpkGtmorDU1qAAIwbwk7SZxrozY15uN-KcyKwug/gviz/tq?tqx=out:csv&sheet=plans';
+const SHEET_ID = '1dWR-VpkGtmorDU1qAAIwbwk7SZxrozY15uN-KcyKwug';
 const SHEET_NAME = 'plans';
 
 const COL_TG_ID_NAME = 'client_telegram_id';
