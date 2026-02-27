@@ -15,8 +15,15 @@ const COL_TG_ID_NAME = 'client_telegram_id';
 const COL_PLAN_NAME  = 'plan_json';
 // ==================================================
 
+// Client-friendly defaults
 const SHOW_SUCCESS_HINT = false;
-const SHOW_DEBUG = false;
+
+// Debug only when ?debug=1 or localStorage.debug_mealapp=1
+const SHOW_DEBUG = (() => {
+  const qs = new URLSearchParams(location.search);
+  if (qs.get('debug') === '1') return true;
+  try { return localStorage.getItem('debug_mealapp') === '1'; } catch { return false; }
+})();
 
 function buildCsvUrl(){
   const url = (SHEET_CSV_URL || '').trim();
@@ -40,10 +47,13 @@ function setHint(msg, kind){
   el.textContent = msg || '';
   el.className = 'hint' + (kind ? ` ${kind}` : '');
 }
+
 function setDebug(msg){
-  if (SHOW_DEBUG){
-    const el = $('#debug');
-    if (el) el.textContent = msg || '';
+  if (!SHOW_DEBUG) return;
+  const el = $('#debug');
+  if (el) {
+    el.style.display = 'block';
+    el.textContent = msg || '';
   }
   if (msg) console.log(msg);
 }
@@ -76,6 +86,7 @@ function computeDayMacros(day={}){
     carbs_g:   num(day?.carbs_g)   || sumMeals(meals,'carbs_g'),
   };
 }
+
 function computePlanMeta(plan={}){
   const days = Array.isArray(plan?.days) ? plan.days : [];
   const meta = plan?.meta || {};
@@ -103,8 +114,8 @@ function normalizePlan(raw){
   return raw || { meta:{ title:'План харчування' }, days:[] };
 }
 
-// -------- CSV parsing --------
-function parseCSV(text){
+// -------- CSV parsing (robust delimiter + header row detection) --------
+function parseCSV(text, delimiter=','){
   const rows = [];
   let row = [];
   let cell = '';
@@ -121,7 +132,7 @@ function parseCSV(text){
       continue;
     }
     if (ch === '"'){ inQuotes = true; continue; }
-    if (ch === ','){ row.push(cell); cell=''; continue; }
+    if (ch === delimiter){ row.push(cell); cell=''; continue; }
     if (ch === '\n'){ row.push(cell); cell=''; rows.push(row); row=[]; continue; }
     if (ch === '\r'){ continue; }
     cell += ch;
@@ -129,6 +140,20 @@ function parseCSV(text){
   row.push(cell);
   rows.push(row);
   return rows;
+}
+
+function detectDelimiter(text){
+  const firstLine = (text || '').split('\n')[0] || '';
+  let commas=0, semis=0, inQ=false;
+  for (let i=0; i<firstLine.length; i++){
+    const ch = firstLine[i];
+    if (ch === '"') inQ = !inQ;
+    if (inQ) continue;
+    if (ch === ',') commas++;
+    if (ch === ';') semis++;
+  }
+  if (semis > commas) return ';';
+  return ',';
 }
 
 function normalizeId(x){
@@ -144,6 +169,32 @@ function normalizeId(x){
 }
 function stripBom(s){ return String(s||'').replace(/^\uFEFF/, ''); }
 
+function normHeaderCell(s){
+  return stripBom(String(s||'')).trim().toLowerCase();
+}
+
+function findHeaderRow(rows){
+  const idCandidates = [
+    COL_TG_ID_NAME, 'tg_id', 'user_id', 'telegram_id', 'telegramid', 'client_telegram_id', 'clienttelegramid'
+  ].map(x => x.toLowerCase());
+
+  const planCandidates = [
+    COL_PLAN_NAME, 'plan', 'meal_plan', 'mealplan', 'plan_data', 'planjson', 'plan text', 'plan_text'
+  ].map(x => x.toLowerCase());
+
+  const maxScan = Math.min(rows.length, 6);
+  for (let r=0; r<maxScan; r++){
+    const raw = rows[r] || [];
+    const header = raw.map(normHeaderCell);
+    const idxId = header.findIndex(h => idCandidates.includes(h));
+    const idxPlan = header.findIndex(h => planCandidates.includes(h));
+    if (idxId >= 0 && idxPlan >= 0){
+      return { headerRowIndex: r, idxId, idxPlan, headerSample: raw.slice(0, 12) };
+    }
+  }
+  return null;
+}
+
 async function fetchPlanFromSheet(tgId){
   const csvUrl = buildCsvUrl();
   if (!csvUrl) throw new Error('План тимчасово недоступний.');
@@ -152,26 +203,33 @@ async function fetchPlanFromSheet(tgId){
   if (!r.ok) throw new Error('Не вдалося завантажити план. Спробуй ще раз.');
 
   const csv = await r.text();
-  const rows = parseCSV(csv);
-  if (!rows.length) throw new Error('План порожній або недоступний.');
 
-  const rawHeader = rows[0].map(h => stripBom(String(h||'')).trim());
-  const header = rawHeader.map(h => h.toLowerCase());
-
-  const wantId = COL_TG_ID_NAME.toLowerCase();
-  const wantPlan = COL_PLAN_NAME.toLowerCase();
-
-  const idxId = header.findIndex(h => h === wantId || h === 'tg_id' || h === 'user_id');
-  const idxPlan = header.findIndex(h => h === wantPlan);
-
-  if (idxId < 0 || idxPlan < 0){
-    setDebug(`CSV headers: ${rawHeader.join(', ')}`);
+  if (/<!doctype html|<html/i.test(csv.slice(0, 300))){
+    setDebug('Got HTML instead of CSV. Check share/publish permissions.');
     throw new Error('План тимчасово недоступний.');
   }
 
+  const delim = detectDelimiter(csv);
+  let rows = parseCSV(csv, delim);
+  if (rows.length && rows[0].length <= 1){
+    rows = parseCSV(csv, delim === ',' ? ';' : ',');
+  }
+  if (!rows.length) throw new Error('План порожній або недоступний.');
+
+  const hdr = findHeaderRow(rows);
+  if (!hdr){
+    setDebug('Header row not found. First row sample: ' + (rows[0] || []).slice(0, 12).join(' | '));
+    throw new Error('План тимчасово недоступний.');
+  }
+
+  const { headerRowIndex, idxId, idxPlan, headerSample } = hdr;
+  setDebug(`Header row: ${headerRowIndex}, idxId=${idxId}, idxPlan=${idxPlan}\nHeader sample: ${headerSample.join(' | ')}`);
+
+  const dataRows = rows.slice(headerRowIndex + 1);
   const target = normalizeId(tgId);
-  for (let i=1; i<rows.length; i++){
-    const rr = rows[i];
+
+  for (let i=0; i<dataRows.length; i++){
+    const rr = dataRows[i];
     if (!rr || !rr.length) continue;
     const rid = normalizeId(rr[idxId]);
     if (rid === target){
@@ -183,6 +241,7 @@ async function fetchPlanFromSheet(tgId){
       return normalizePlan(val);
     }
   }
+
   throw new Error('План не знайдено.');
 }
 
@@ -242,7 +301,6 @@ function renderDay(dayObj, dayNumber){
         <h3 class="meal-title">${escapeHTML(m?.title || '')}</h3>
         ${hasMacros ? `<div class="meal-macros">Ккал: ${kcal} • Б:${p} • Ж:${f} • В:${c}</div>` : ''}
       </div>
-      ${m?.description ? `<p class="meal-desc">${escapeHTML(m.description)}</p>` : ''}
 
       ${Array.isArray(m?.ingredients) && m.ingredients.length ? `
         <details class="ing">
@@ -344,7 +402,7 @@ function isValidUid(x){ return /^\d{4,20}$/.test(String(x||'').trim()); }
 async function loadAndRender(uid){
   const id = normalizeId(uid);
   setHint('', '');
-  setDebug(`tg_id: ${id}\nCSV: ${buildCsvUrl() || '(not set)'}`);
+  setDebug(`tg_id: ${id}\nCSV: ${buildCsvUrl() || '(not set)'}\nDebug: ON`);
   const plan = await fetchPlanFromSheet(id);
   renderPlan(plan);
   setHint('План відкрито ✅', 'ok');
